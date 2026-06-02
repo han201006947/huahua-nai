@@ -40,9 +40,9 @@ function collectImages(dir, list = []) {
 function getMainProfile(filePath) {
   const base = path.basename(filePath).toLowerCase()
   if (base === HERO_FILE) {
-    return { maxWidth: 900, quality: 80, label: '价目主图' }
+    return { maxWidth: 720, quality: 78, label: '价目主图' }
   }
-  return { maxWidth: 720, quality: 76, label: '作品图' }
+  return { maxWidth: 640, quality: 74, label: '作品图' }
 }
 
 // 缩略图路径
@@ -104,8 +104,8 @@ async function writeThumb(filePath) {
 
   await sharp(inputBuf)
     .rotate()
-    .resize({ width: 420, withoutEnlargement: true })
-    .jpeg({ quality: 72, mozjpeg: true })
+    .resize({ width: 320, withoutEnlargement: true })
+    .jpeg({ quality: 70, mozjpeg: true })
     .toFile(tempPath)
 
   fs.rmSync(out, { force: true })

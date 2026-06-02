@@ -1,6 +1,6 @@
 <script setup>
 // 从 vue 引入响应式 API 与生命周期
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 // 引入按文件夹组织的相册数据与穿戴甲贴手示意文案
 import { galleryAlbums, STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
@@ -20,6 +20,11 @@ const lightboxAlbum = ref(null)
 
 // 横屏媒体 key 集合（宽>高时旋转 90° 展示）
 const landscapeKeys = ref(new Set())
+
+// 已进入视口的相册 id：未到视口不请求缩略图
+const visibleAlbumIds = ref(new Set())
+
+let galleryObserver = null
 
 // 检测封面/详情图是否为横屏，横屏则加入集合
 function markLandscapeIfNeeded(event, key) {
@@ -76,6 +81,34 @@ const filteredAlbums = computed(() => {
 // 网格封面是否为纯视频（不在列表里预加载 mp4，点开详情再看）
 function gridCoverIsVideo(album) {
   return /\.(mp4|webm|mov)$/i.test(album.cover || '')
+}
+
+// 相册封面缩略图是否应开始加载（视口内才设 src）
+function shouldLoadCover(album) {
+  if (gridCoverIsVideo(album)) return false
+  return visibleAlbumIds.value.has(album.id)
+}
+
+// 绑定作品集网格 IntersectionObserver
+function bindGalleryObserver() {
+  if (galleryObserver) galleryObserver.disconnect()
+  galleryObserver = new IntersectionObserver(
+    (entries) => {
+      const next = new Set(visibleAlbumIds.value)
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        const id = entry.target.getAttribute('data-album-id')
+        if (id) next.add(id)
+      }
+      if (next.size !== visibleAlbumIds.value.size) {
+        visibleAlbumIds.value = next
+      }
+    },
+    { rootMargin: '160px', threshold: 0.01 }
+  )
+  document.querySelectorAll('.gallery-item[data-album-id]').forEach((el) => {
+    galleryObserver.observe(el)
+  })
 }
 
 // 切换分类筛选
@@ -142,10 +175,16 @@ function onKeydown(event) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  nextTick(() => bindGalleryObserver())
+})
+
+watch(filteredAlbums, () => {
+  nextTick(() => bindGalleryObserver())
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+  galleryObserver?.disconnect()
   unlockScroll()
 })
 </script>
@@ -181,6 +220,7 @@ onUnmounted(() => {
           v-for="album in filteredAlbums"
           :key="album.id"
           class="gallery-item is-clickable"
+          :data-album-id="album.id"
           @click="openAlbum(album)"
         >
           <div
@@ -201,7 +241,7 @@ onUnmounted(() => {
             <img
               v-else
               class="gallery-media"
-              :src="assetUrl(coverThumbUrl(album.cover))"
+              :src="shouldLoadCover(album) ? assetUrl(coverThumbUrl(album.cover)) : undefined"
               :alt="album.title"
               loading="lazy"
               decoding="async"
