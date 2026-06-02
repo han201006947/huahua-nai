@@ -3,8 +3,10 @@
  */
 import {
   addAlbum,
+  addAlbumMedia,
   addCategory,
   deleteAlbum,
+  deleteAlbumMedia,
   listAlbums,
   listCategories,
   readJsonBody,
@@ -43,6 +45,23 @@ export function galleryAdminPlugin() {
           if (req.method === 'POST' && url === '/api/gallery/albums') {
             const body = await readJsonBody(req)
             const result = await addAlbum(body)
+            sendJson(res, 200, result)
+            return
+          }
+
+          const mediaMatch = url.match(/^\/api\/gallery\/albums\/([^/?]+)\/media/)
+          if (req.method === 'POST' && mediaMatch) {
+            const albumId = decodeURIComponent(mediaMatch[1])
+            const body = await readJsonBody(req)
+            const result = await addAlbumMedia(albumId, body)
+            sendJson(res, 200, result)
+            return
+          }
+
+          if (req.method === 'DELETE' && mediaMatch) {
+            const albumId = decodeURIComponent(mediaMatch[1])
+            const body = await readJsonBody(req)
+            const result = await deleteAlbumMedia(albumId, body.src)
             sendJson(res, 200, result)
             return
           }

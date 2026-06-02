@@ -293,3 +293,102 @@ export async function deleteAlbum(albumId) {
   const albums = await runSyncAndLoad()
   return { albumId, albums }
 }
+
+// 定位相册在 public 内的存储（文件夹或单文件）
+function resolveAlbumStorage(albumId) {
+  const dash = albumId.indexOf('-')
+  if (dash < 1) throw new Error('相册 id 无效')
+  const catKey = albumId.slice(0, dash)
+  const entryName = albumId.slice(dash + 1)
+  const cat = findCategoryByKey(catKey)
+  if (!cat) throw new Error('未找到相册分类')
+
+  const catDir = path.join(publicRoot, cat.dir)
+  const folderPath = path.join(catDir, entryName)
+  if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+    return { type: 'folder', dir: folderPath, catDir, entryName, albumId }
+  }
+
+  const directFile = path.join(catDir, entryName)
+  if (fs.existsSync(directFile) && fs.statSync(directFile).isFile()) {
+    return { type: 'file', filePath: directFile, catDir, entryName, albumId }
+  }
+
+  for (const ext of [...IMAGE_EXT, ...VIDEO_EXT]) {
+    const fp = path.join(catDir, entryName + ext)
+    if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
+      return { type: 'file', filePath: fp, catDir, entryName, albumId }
+    }
+  }
+
+  throw new Error('磁盘上未找到该款式目录')
+}
+
+// 单文件相册转为文件夹，便于继续追加媒体
+function ensureAlbumFolder(storage) {
+  if (storage.type === 'folder') return storage.dir
+  const folderPath = path.join(storage.catDir, storage.entryName)
+  fs.mkdirSync(folderPath, { recursive: true })
+  const dest = path.join(folderPath, path.basename(storage.filePath))
+  fs.renameSync(storage.filePath, dest)
+  return folderPath
+}
+
+// web 路径转 public 绝对路径并校验
+function srcToPublicPath(src) {
+  const rel = String(src || '').replace(/^\.\//, '').replace(/^\//, '')
+  if (!rel || rel.includes('..')) throw new Error('媒体路径无效')
+  const abs = path.join(publicRoot, rel)
+  if (!abs.startsWith(publicRoot)) throw new Error('媒体路径无效')
+  return { rel, abs }
+}
+
+// 从 overrides 的 mediaOrder 中移除已删文件
+async function removeSrcFromOverrides(albumId, src) {
+  const overrides = await loadOverrides()
+  const o = overrides[albumId]
+  if (!o?.mediaOrder?.length) return
+  const normalized = String(src).replace(/^\.\//, '')
+  o.mediaOrder = o.mediaOrder.filter((s) => {
+    const r = String(s).replace(/^\.\//, '')
+    return r !== normalized && s !== src
+  })
+  if (!o.mediaOrder.length) delete o.mediaOrder
+  if (Object.keys(o).length === 0) delete overrides[albumId]
+  writeOverrides(overrides)
+}
+
+// 详情内删除单张图/单个视频
+export async function deleteAlbumMedia(albumId, src) {
+  if (!albumId || !src) throw new Error('缺少相册 id 或媒体路径')
+  const { abs } = srcToPublicPath(src)
+  if (!fs.existsSync(abs)) throw new Error('文件不存在或已被删除')
+  fs.rmSync(abs, { force: true })
+  await removeSrcFromOverrides(albumId, src)
+
+  const albums = await runSyncAndLoad()
+  const album = albums.find((a) => a.id === albumId) || null
+  return { albumId, album, albums }
+}
+
+// 详情内追加图片/视频到已有款式
+export async function addAlbumMedia(albumId, payload) {
+  if (!albumId) throw new Error('缺少相册 id')
+  const files = payload?.files
+  if (!Array.isArray(files) || !files.length) throw new Error('请选择至少一张图片或一个视频')
+
+  const storage = resolveAlbumStorage(albumId)
+  const albumDir = ensureAlbumFolder(storage)
+
+  for (let i = 0; i < files.length; i += 1) {
+    const item = files[i]
+    const safeName = sanitizeFileName(item.name, i)
+    const buf = decodeBase64(item.data)
+    if (!buf.length) throw new Error(`文件 ${safeName} 内容为空`)
+    fs.writeFileSync(path.join(albumDir, safeName), buf)
+  }
+
+  const albums = await runSyncAndLoad()
+  const album = albums.find((a) => a.id === albumId) || null
+  return { albumId, album, albums }
+}

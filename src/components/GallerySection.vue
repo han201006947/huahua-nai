@@ -6,7 +6,12 @@ import { STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
 // 作品集列表：开发态可热更新
 import { useGalleryAlbums } from '../composables/useGalleryAlbums.js'
 // 本地 dev 删除款式 API
-import { requestDeleteAlbum } from '../composables/useGalleryAdminApi.js'
+import {
+  readFileAsBase64,
+  requestAddAlbumMedia,
+  requestDeleteAlbum,
+  requestDeleteAlbumMedia,
+} from '../composables/useGalleryAdminApi.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
 import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
 
@@ -23,6 +28,12 @@ const adminPanelOpen = ref(isDev)
 
 // 正在删除的相册 id（防止重复点击）
 const deletingAlbumId = ref('')
+
+// 详情弹层内媒体操作进行中
+const mediaActionBusy = ref(false)
+
+// 详情内追加媒体的文件选择器
+const albumMediaInput = ref(null)
 
 // 当前筛选分类，空字符串表示全部
 const activeCategory = ref('')
@@ -255,6 +266,59 @@ async function onGalleryAdminChanged() {
   bindGalleryObserver()
 }
 
+// 详情内增删媒体后刷新弹层与网格
+async function applyMediaChangeResult(data) {
+  albums.value = [...(data.albums || [])]
+  galleryListKey.value += 1
+  await reloadCategories()
+  const updated = albums.value.find((a) => a.id === data.albumId)
+  if (updated) activeAlbum.value = { ...updated }
+  else closeAlbum()
+  await nextTick()
+  bindGalleryObserver()
+}
+
+// 删除详情内单张图/单个视频
+async function deleteAlbumMediaItem(item) {
+  if (!activeAlbum.value || mediaActionBusy.value) return
+  const label = item.type === 'video' ? '视频' : '图片'
+  if (!window.confirm(`确定删除这个${label}？\n文件将从 public 中移除。`)) return
+  mediaActionBusy.value = true
+  try {
+    const data = await requestDeleteAlbumMedia(activeAlbum.value.id, item.src)
+    await applyMediaChangeResult(data)
+  } catch (e) {
+    window.alert(e.message || String(e))
+  } finally {
+    mediaActionBusy.value = false
+  }
+}
+
+// 触发详情内选择文件
+function pickAlbumMediaFiles() {
+  albumMediaInput.value?.click()
+}
+
+// 详情内追加图片/视频
+async function onAlbumMediaPicked(event) {
+  const list = event.target.files
+  if (!activeAlbum.value || !list?.length) return
+  mediaActionBusy.value = true
+  try {
+    const files = []
+    for (const file of list) {
+      files.push({ name: file.name, data: await readFileAsBase64(file) })
+    }
+    const data = await requestAddAlbumMedia(activeAlbum.value.id, files)
+    await applyMediaChangeResult(data)
+  } catch (e) {
+    window.alert(e.message || String(e))
+  } finally {
+    mediaActionBusy.value = false
+    event.target.value = ''
+  }
+}
+
 // 点击卡片右下角删除（仅 dev + 管理面板展开时可见）
 async function deleteAlbumFromGrid(album) {
   if (!window.confirm(`确定删除「${album.title}」？\n将删除 public 内对应图片/视频，且不可恢复。`)) return
@@ -409,7 +473,7 @@ onUnmounted(() => {
           >
             <div
               v-for="(item, index) in activeAlbum.media"
-              :key="index"
+              :key="item.src"
               class="album-media-item"
               :class="[
                 item.type === 'video' ? 'is-video' : 'is-image',
@@ -438,6 +502,36 @@ onUnmounted(() => {
                 @loadedmetadata="markLandscapeIfNeeded($event, 'detail-' + activeAlbum.id + '-' + index)"
                 @click.stop
               />
+              <!-- 本地 dev：删除单张图/视频 -->
+              <button
+                v-if="isDev"
+                type="button"
+                class="album-media-del"
+                :disabled="mediaActionBusy"
+                aria-label="删除此媒体"
+                @click.stop="deleteAlbumMediaItem(item)"
+              >
+                删除
+              </button>
+            </div>
+            <!-- 本地 dev：向当前款式追加媒体 -->
+            <div v-if="isDev" class="album-media-add">
+              <input
+                ref="albumMediaInput"
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                hidden
+                @change="onAlbumMediaPicked"
+              />
+              <button
+                type="button"
+                class="album-media-add-btn"
+                :disabled="mediaActionBusy"
+                @click="pickAlbumMediaFiles"
+              >
+                {{ mediaActionBusy ? '处理中…' : '+ 添加图片 / 视频' }}
+              </button>
             </div>
           </div>
         </div>
@@ -910,6 +1004,49 @@ onUnmounted(() => {
 
 .album-media-item.is-image img:hover {
   opacity: 0.92;
+}
+
+/* 详情内单媒体删除按钮 */
+.album-media-del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(180, 35, 24, 0.92);
+  color: #fff;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.album-media-del:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+/* 详情内追加媒体 */
+.album-media-add {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.album-media-add-btn {
+  padding: 8px 16px;
+  border: 1px dashed #c9a87c;
+  border-radius: 8px;
+  background: #fff8f0;
+  color: #7a5230;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.album-media-add-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 /* 图片放大层 */
