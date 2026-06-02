@@ -28,6 +28,6 @@ npm run out
 
 ## Git 提交
 
-- **是否已提交**：否
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：8d710e7（nail-beauty / master / 未 push）
+- **提交说明**：feat: npm run out 生成 dist 与启动.bat 离线包
