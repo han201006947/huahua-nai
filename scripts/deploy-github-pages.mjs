@@ -30,17 +30,35 @@ if (!fs.existsSync(path.join(distDir, 'index.html'))) {
 if (!repoUrl) {
   console.error('>> 请在 deploy.config.json 填写 githubRepoUrl')
   console.error('>> 示例：https://github.com/你的用户名/huahua-nail.git')
-  console.error('>> 更简单：用 npm run online 按记事本步骤网页上传，不必填此项')
   process.exit(1)
+}
+
+// 清除 gh-pages 本地缓存，避免 "branch gh-pages already exists" 报错
+const cacheDir = path.join(projectRoot, 'node_modules/.cache/gh-pages')
+if (fs.existsSync(cacheDir)) {
+  fs.rmSync(cacheDir, { recursive: true, force: true })
+  console.log('>> 已清除 gh-pages 缓存')
 }
 
 console.log('>> 推送到 GitHub Pages 分支 gh-pages ...')
 console.log('>> 仓库:', repoUrl)
 console.log('>> 若提示登录：用户名填 GitHub 用户名，密码填 Personal Access Token（不是登录密码）')
+console.log('>> dist 约 270MB，首次上传可能需数分钟，请勿关闭窗口')
 
-execSync(`npx gh-pages -d dist -r ${repoUrl}`, {
+// 大体积推送：增大 HTTP 缓冲、用 HTTP/1.1；`-f` 每次 orphan 提交避免历史膨胀
+const deployEnv = {
+  ...process.env,
+  GIT_CONFIG_COUNT: '2',
+  GIT_CONFIG_KEY_0: 'http.postBuffer',
+  GIT_CONFIG_VALUE_0: '524288000',
+  GIT_CONFIG_KEY_1: 'http.version',
+  GIT_CONFIG_VALUE_1: 'HTTP/1.1',
+}
+
+execSync(`npx gh-pages -d dist -r ${repoUrl} -f`, {
   cwd: projectRoot,
   stdio: 'inherit',
+  env: deployEnv,
 })
 
 const m = repoUrl.match(/github\.com[/:]([^/]+)\/([^/.]+)/i)
