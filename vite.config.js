@@ -29,6 +29,11 @@ export default defineConfig(({ command }) => ({
   plugins: [vue(), galleryAdminPlugin()],
   // 相对路径：支持本地 file:// 与离线包内嵌浏览
   base: './',
+  // 手机扫码管理须监听局域网 IP（--host）
+  server: {
+    host: true,
+    port: 5173,
+  },
   define: {
     __SITE_BUILD_VER__: JSON.stringify(siteBuildVer),
     // 仅生产 build 走 jsDelivr；dev 新增款式还在 public，CDN 上没有

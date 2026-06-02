@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "sync-gallery": "node scripts/sync-gallery-albums.mjs",
     "build": "npm run sync-gallery && vite build && node scripts/optimize-dist-images.mjs && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fix-dist-html.ps1 && node scripts/inject-site-url.mjs",
     "preview": "vite preview",

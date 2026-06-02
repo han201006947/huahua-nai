@@ -3,6 +3,8 @@
 import { ref, computed, onMounted } from 'vue'
 // 带店主 session 的请求
 import { adminFetch, logoutAdmin } from '../composables/useAdminAuth.js'
+// 其他窗口增删后刷新本面板下拉
+import { useGallerySyncListener } from '../composables/useGallerySync.js'
 
 // 父组件在增删成功后刷新网格
 const emit = defineEmits(['changed'])
@@ -37,6 +39,9 @@ const customCategories = computed(() => categories.value.filter((c) => c.isCusto
 onMounted(() => {
   refreshMeta()
 })
+
+// 电脑/手机多窗口：一方改完另一方管理面板下拉也刷新
+useGallerySyncListener(() => refreshMeta())
 
 // 读取分类列表并同步下拉选中项
 async function refreshMeta() {
