@@ -2,36 +2,23 @@
 
 Vue 3 + Vite，电脑与手机自适应。
 
-## 网上扫码 · 任何人都能看（不用同一 WiFi）
+## 网上扫码 · 任何人都能看（推荐 GitHub Pages）
 
 ```bash
 npm run online
 ```
 
-1. 自动构建并打开 **dist 文件夹** + [Netlify 官网](https://app.netlify.com/)
-2. 免费注册 / 登录
-3. **Sites** → **Add new site** → **Deploy manually**
-4. 把 **dist 里面的全部文件**拖进去（`index.html`、`assets/`、`maoyan/` 等，不是拖 dist 文件夹本身）
-5. 复制网址，例如 `https://huahua-nail.netlify.app/`
-6. 写入 `deploy.config.json`：
+会自动：**构建** → 打开 **dist 文件夹** → 打开 **GitHub 新建仓库页** → 打开**中文步骤记事本**。
 
-```json
-{
-  "publicUrl": "https://huahua-nail.netlify.app/"
-}
-```
+按记事本 **7 步**做完即可（比 Netlify 注册简单，272MB 含视频可用）：
 
-7. 生成二维码：
-
-```bash
-npm run gen-qr
-```
-
-使用 **`release/顾客扫码二维码.png`**，微信发送或打印，**全国顾客扫码即可看**（含视频）。
-
-以后更新作品：重新 `npm run build`，在 Netlify 该站点 **Deploys** 里再拖一次 dist 内文件，链接不变。
-
-> Netlify 免费、长期有效，272MB 含视频可上传。Gitee 个人 Pages / upma 10MB 上限不适用。
+1. GitHub 注册  
+2. 新建公开仓库 `huahua-nail`  
+3. **Upload files** 上传 dist 里全部文件  
+4. **Settings → Pages** → Branch 选 `main` → Save  
+5. 得到 `https://用户名.github.io/huahua-nail/`  
+6. 填入 `deploy.config.json` 的 `publicUrl`  
+7. `npm run gen-qr` → 用 `release/顾客扫码二维码.png`
 
 ## 店内 WiFi 扫码（仅同网络）
 
@@ -39,7 +26,7 @@ npm run gen-qr
 npm run out
 ```
 
-生成 **`release/花花美甲坊/`**，双击 **启动.bat**，顾客连店里同一 WiFi 扫码。详见文件夹内 **说明.txt**。
+双击 **启动.bat**，顾客连店里同一 WiFi 扫码。
 
 ## 开发
 
@@ -49,8 +36,11 @@ npm run dev
 npm run build
 ```
 
+## 可选 · 命令行部署 GitHub
+
+已熟悉 GitHub Token 时：`deploy.config.json` 填 `githubRepoUrl` 后执行 `npm run deploy`。
+
 ## 自定义
 
 - 文案：`src/data/siteContent.js`
-- 作品图/视频：`public/` 后 `npm run build` 或 `npm run online`
-- 仅看部分款式：`src/data/galleryAlbums.overrides.js`
+- 作品：`public/` 后 `npm run build` 或 `npm run online`
