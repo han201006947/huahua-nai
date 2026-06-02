@@ -42,6 +42,9 @@ const landscapeKeys = ref(new Set())
 // 已进入视口的相册 id：未到视口不请求缩略图
 const visibleAlbumIds = ref(new Set())
 
+// 增删后递增，强制作品集网格整体重绘
+const galleryListKey = ref(0)
+
 let galleryObserver = null
 
 // 检测封面/详情图是否为横屏，横屏则加入集合
@@ -117,26 +120,34 @@ function onCoverImgError(event, album) {
   img.src = fallback
 }
 
-// 绑定作品集网格 IntersectionObserver
+// 绑定作品集网格 IntersectionObserver，并重置视口内封面加载状态
 function bindGalleryObserver() {
   if (galleryObserver) galleryObserver.disconnect()
+  const immediatelyVisible = new Set()
   galleryObserver = new IntersectionObserver(
     (entries) => {
       const next = new Set(visibleAlbumIds.value)
       for (const entry of entries) {
-        if (!entry.isIntersecting) continue
         const id = entry.target.getAttribute('data-album-id')
-        if (id) next.add(id)
+        if (!id) continue
+        if (entry.isIntersecting) next.add(id)
+        else next.delete(id)
       }
-      if (next.size !== visibleAlbumIds.value.size) {
-        visibleAlbumIds.value = next
-      }
+      visibleAlbumIds.value = next
     },
     { rootMargin: '160px', threshold: 0.01 }
   )
+  const viewportH = window.innerHeight || document.documentElement.clientHeight
   document.querySelectorAll('.gallery-item[data-album-id]').forEach((el) => {
     galleryObserver.observe(el)
+    // 删款后重绑时，已在屏幕内的卡片立刻恢复封面（避免空白）
+    const rect = el.getBoundingClientRect()
+    if (rect.bottom >= -160 && rect.top <= viewportH + 160) {
+      const id = el.getAttribute('data-album-id')
+      if (id) immediatelyVisible.add(id)
+    }
   })
+  visibleAlbumIds.value = immediatelyVisible
 }
 
 // 切换分类筛选
@@ -203,6 +214,11 @@ function onKeydown(event) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  // 删款后 reload 回来：恢复「管理款式」面板展开
+  if (isDev && sessionStorage.getItem('gallery-admin-open') === '1') {
+    adminPanelOpen.value = true
+    sessionStorage.removeItem('gallery-admin-open')
+  }
   nextTick(() => bindGalleryObserver())
 })
 
@@ -210,11 +226,15 @@ watch(filteredAlbums, () => {
   nextTick(() => bindGalleryObserver())
 })
 
-// 本地管理增删后刷新列表与懒加载观察器
+// 本地管理增删后刷新列表、重置网格与懒加载
 async function onGalleryAdminChanged() {
+  if (activeAlbum.value) closeAlbum()
+  if (lightboxSrc.value) closeLightbox()
+  landscapeKeys.value = new Set()
   await reloadAlbums()
-  visibleAlbumIds.value = new Set()
-  nextTick(() => bindGalleryObserver())
+  galleryListKey.value += 1
+  await nextTick()
+  bindGalleryObserver()
 }
 
 // 点击卡片右下角删除（仅 dev + 管理面板展开时可见）
@@ -223,10 +243,13 @@ async function deleteAlbumFromGrid(album) {
   deletingAlbumId.value = album.id
   try {
     await requestDeleteAlbum(album.id)
-    await onGalleryAdminChanged()
+    // 记住面板展开，刷新后仍停在管理模式
+    if (adminPanelOpen.value) {
+      sessionStorage.setItem('gallery-admin-open', '1')
+    }
+    window.location.reload()
   } catch (e) {
     window.alert(e.message || String(e))
-  } finally {
     deletingAlbumId.value = ''
   }
 }
@@ -270,8 +293,8 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- 相册封面网格 -->
-      <div class="gallery-grid">
+      <!-- 相册封面网格（key 随增删变化，避免删后仍显示旧卡片） -->
+      <div :key="galleryListKey" class="gallery-grid">
         <figure
           v-for="album in filteredAlbums"
           :key="album.id"

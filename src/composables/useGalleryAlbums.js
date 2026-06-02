@@ -21,7 +21,8 @@ export function useGalleryAlbums() {
       throw new Error(err.error || '加载作品集失败')
     }
     const data = await res.json()
-    albumsRef.value = data.albums || []
+    // 新数组引用，确保网格重新渲染
+    albumsRef.value = [...(data.albums || [])]
   }
 
   return { albums: albumsRef, reloadAlbums, isDev }
