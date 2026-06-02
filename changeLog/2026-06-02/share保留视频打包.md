@@ -24,6 +24,6 @@ npm run share
 
 ## Git 提交
 
-- **是否已提交**：否
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：ac50f6f（nail-beauty / master / 未 push）
+- **提交说明**：fix: share 打包保留视频不再排除 mp4
