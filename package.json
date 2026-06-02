@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "sync-gallery": "node scripts/sync-gallery-albums.mjs",
-    "build": "npm run sync-gallery && vite build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fix-dist-html.ps1 && node scripts/inject-site-url.mjs",
+    "build": "npm run sync-gallery && vite build && node scripts/optimize-dist-images.mjs && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fix-dist-html.ps1 && node scripts/inject-site-url.mjs",
     "preview": "vite preview",
     "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-offline.ps1",
     "out": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-offline.ps1",
@@ -24,6 +24,7 @@
     "gh-pages": "^6.3.0",
     "localtunnel": "^2.0.2",
     "qrcode": "^1.5.4",
+    "sharp": "^0.34.2",
     "vite": "^8.0.12"
   }
 }

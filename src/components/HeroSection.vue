@@ -55,6 +55,8 @@ function goGallery() {
             :src="assetUrl(heroImage)"
             alt="花花美甲坊价目宣传单"
             loading="eager"
+            fetchpriority="high"
+            decoding="async"
           />
           <div class="card-badge">价目一览</div>
         </div>

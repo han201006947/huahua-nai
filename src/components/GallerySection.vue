@@ -185,14 +185,14 @@ onUnmounted(() => {
               'is-landscape-video': isCoverLandscapeVideo(album),
             }"
           >
-            <!-- 纯视频相册：封面用视频首帧，不再误用其他主题图 -->
+            <!-- 纯视频相册：封面仅展示首帧，preload=none 避免网格里预拉整段 mp4 -->
             <video
               v-if="album.coverVideo || album.videoOnly"
               class="gallery-media"
               :src="assetUrl(album.coverVideo || album.cover)"
               muted
               playsinline
-              preload="metadata"
+              preload="none"
               @loadedmetadata="markLandscapeIfNeeded($event, 'cover-' + album.id)"
             />
             <img
@@ -201,6 +201,7 @@ onUnmounted(() => {
               :src="assetUrl(album.cover)"
               :alt="album.title"
               loading="lazy"
+              decoding="async"
               @load="markLandscapeIfNeeded($event, 'cover-' + album.id)"
             />
             <span v-if="album.hasVideo" class="video-badge">▶ 含视频</span>
