@@ -13,6 +13,7 @@ import {
   requestAddAlbumMedia,
   requestDeleteAlbum,
   requestDeleteAlbumMedia,
+  waitForGalleryUpdate,
 } from '../composables/useGalleryAdminApi.js'
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
@@ -22,16 +23,14 @@ import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, reloadAlbums, reloadCategories, isDev } = useGalleryAlbums()
 
-// 店主 session（15235952769 扫码登录；main.js 已提前 initAdminAuth）
-const { isAdminLoggedIn } = useAdminAuth()
+// 店主 session（扫码登录；main.js 已提前 initAdminAuth）
+const { isAdminLoggedIn, isOnlineAdminMode } = useAdminAuth()
 
-// 是否允许管理/删除（dev 且已登录）
-const canManage = computed(() => isDev && isAdminLoggedIn.value)
+// 是否允许管理/删除（已登录即可，线上与本地 dev 均可用）
+const canManage = computed(() => isAdminLoggedIn.value)
 
-// 开发环境才加载本地管理面板（不会打进生产包）
-const GalleryAdminPanel = isDev
-  ? defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
-  : null
+// 管理面板（线上 build 含此组件，仅登录后显示）
+const GalleryAdminPanel = defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
 
 // 管理面板是否展开（登录后默认展开）
 const adminPanelOpen = ref(false)
@@ -247,7 +246,7 @@ function onKeydown(event) {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
-  if (isDev) {
+  if (isDev || isOnlineAdminMode()) {
     if (isAdminLoggedIn.value) adminPanelOpen.value = true
     reloadCategories().catch(() => {})
     reloadAlbums().catch(() => {})
@@ -290,6 +289,10 @@ async function onGalleryAdminChanged(fromBroadcast = false) {
   coverFailedIds.value = new Set()
   try {
     await Promise.all([reloadAlbums(), reloadCategories()])
+    if (isOnlineAdminMode() && !fromBroadcast) {
+      await waitForGalleryUpdate()
+      await reloadAlbums()
+    }
   } catch (e) {
     window.alert(e.message || String(e))
   }
@@ -361,6 +364,11 @@ async function deleteAlbumFromGrid(album) {
   try {
     await requestDeleteAlbum(album.id)
     notifyGallerySync()
+    if (isOnlineAdminMode()) {
+      await onGalleryAdminChanged()
+      deletingAlbumId.value = ''
+      return
+    }
     sessionStorage.setItem('gallery-scroll-restore', '1')
     window.location.reload()
   } catch (e) {
@@ -390,7 +398,7 @@ onUnmounted(() => {
 
       <!-- dev：已登录才显示管理面板；未登录不展示任何说明文字，店主用二维码扫码登录 -->
       <GalleryAdminPanel
-        v-if="canManage && GalleryAdminPanel"
+        v-if="canManage"
         v-model:open="adminPanelOpen"
         @changed="onGalleryAdminChanged"
       />

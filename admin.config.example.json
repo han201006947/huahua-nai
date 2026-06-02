@@ -1,4 +1,5 @@
 {
   "adminPhone": "15235952769",
-  "adminSecret": "huahua-admin-请改成只有你知道的字符串"
+  "adminSecret": "ghp_你的GitHub个人令牌-仅店主保存",
+  "_comment": "线上手机管理：adminSecret 填 GitHub PAT（Contents 读写 huahua-nai 仓库）。店主二维码含此令牌，切勿发给顾客。生成：npm run gen-admin-qr"
 }

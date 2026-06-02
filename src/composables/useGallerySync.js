@@ -2,16 +2,17 @@
  * 本地 dev：多标签/多设备（同站点）作品集数据变更广播，双方实时刷新
  */
 import { onMounted, onUnmounted } from 'vue'
+import { isOnlineAdminMode } from './useAdminAuth.js'
 
-// BroadcastChannel 名称（仅 dev 使用）
 const SYNC_CHANNEL = 'nail-gallery-sync'
-
-// 单例频道，避免重复创建
 let syncChannel = null
 
-// 获取或创建广播频道（非 dev / 不支持时返回 null）
+function canUseSync() {
+  return import.meta.env.DEV || isOnlineAdminMode()
+}
+
 function getSyncChannel() {
-  if (!import.meta.env.DEV) return null
+  if (!canUseSync()) return null
   if (typeof BroadcastChannel === 'undefined') return null
   if (!syncChannel) syncChannel = new BroadcastChannel(SYNC_CHANNEL)
   return syncChannel

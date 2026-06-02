@@ -7,6 +7,24 @@ import { galleryAdminPlugin } from './scripts/gallery-admin-plugin.mjs'
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url))
 
+function loadJsonFile(relPath) {
+  try {
+    const fp = path.join(projectRoot, relPath)
+    if (!fs.existsSync(fp)) return {}
+    return JSON.parse(fs.readFileSync(fp, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+// 构建时注入线上仓库与店主手机号（供手机扫码管理）
+const deployCfg = loadJsonFile('deploy.config.json')
+const adminCfg = fs.existsSync(path.join(projectRoot, 'admin.config.json'))
+  ? loadJsonFile('admin.config.json')
+  : loadJsonFile('admin.config.example.json')
+const githubRepoMatch = (deployCfg.githubRepoUrl || '').match(/github\.com[/:]([^/]+)\/([^/.]+)/i)
+const githubRepo = githubRepoMatch ? `${githubRepoMatch[1]}/${githubRepoMatch[2]}` : ''
+
 // 每次构建生成版本号，追加到图片 URL，避免 CDN 长期缓存旧大图
 const siteBuildVer = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14)
 
@@ -36,8 +54,10 @@ export default defineConfig(({ command }) => ({
   },
   define: {
     __SITE_BUILD_VER__: JSON.stringify(siteBuildVer),
-    // 仅生产 build 走 jsDelivr；dev 新增款式还在 public，CDN 上没有
     __CDN_BASE__: JSON.stringify(command === 'build' ? resolveCdnBase() : ''),
+    __GITHUB_REPO__: JSON.stringify(command === 'build' ? githubRepo : ''),
+    __GITHUB_BRANCH__: JSON.stringify('master'),
+    __ADMIN_PHONE__: JSON.stringify(String(adminCfg.adminPhone || '15235952769')),
   },
   build: {
     // 关闭 module 分包，便于 file:// 直接打开（Chrome / 手机浏览器）

@@ -1,5 +1,5 @@
 /**
- * 生成店主管理登录二维码（链接含密钥，仅店主保存此图）
+ * 生成店主管理登录二维码（与顾客同链接 + 登录参数，手机扫码即可管理）
  */
 import fs from 'fs'
 import os from 'os'
@@ -11,45 +11,34 @@ import { buildAdminLoginUrl, loadAdminConfig } from './admin-auth.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 const releaseDir = path.join(projectRoot, 'release')
+const deployConfigPath = path.join(projectRoot, 'deploy.config.json')
 
-// 跳过虚拟网卡/热点/链路本地，避免二维码指向手机扫不开的地址
-function isBadInterface(name, address) {
-  const n = String(name || '').toLowerCase()
-  if (n.includes('vmware') || n.includes('virtualbox') || n.includes('vethernet')) return true
-  if (n.includes('hotspot') || n.includes('mobile') || address.startsWith('192.168.137.')) return true
-  if (address.startsWith('169.254.')) return true
-  return false
+function loadPublicUrl() {
+  if (process.argv[2]) return process.argv[2].replace(/\/$/, '')
+  if (fs.existsSync(deployConfigPath)) {
+    const cfg = JSON.parse(fs.readFileSync(deployConfigPath, 'utf8'))
+    const url = (cfg.publicUrl || '').trim().replace(/\/$/, '')
+    if (url) return url
+  }
+  return detectLanOrigin()
 }
 
-// 探测本机局域网 IPv4：优先 WLAN/Wi-Fi，供手机微信扫码
 function detectLanOrigin() {
   const ifaces = os.networkInterfaces()
-  const candidates = []
   for (const name of Object.keys(ifaces)) {
+    if (!/wlan|wi-?fi|无线/i.test(name)) continue
     for (const iface of ifaces[name] || []) {
-      if (iface.family !== 'IPv4' || iface.internal) continue
-      if (isBadInterface(name, iface.address)) continue
-      candidates.push({ name, address: iface.address })
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return `http://${iface.address}:5173`
+      }
     }
   }
-  const prefer = (re) => candidates.find((c) => re.test(c.name))
-  const picked =
-    prefer(/wlan|wi-?fi|无线/i) ||
-    prefer(/ethernet|以太网/i) ||
-    candidates[0]
-  if (picked) return `http://${picked.address}:5173`
   return 'http://localhost:5173'
-}
-
-// 管理 API 仅在 npm run dev 生效；无参数时自动用局域网 IP
-function resolveOrigin() {
-  if (process.argv[2]) return process.argv[2].replace(/\/$/, '')
-  return detectLanOrigin()
 }
 
 async function main() {
   const cfg = loadAdminConfig()
-  const origin = resolveOrigin()
+  const origin = loadPublicUrl()
   const loginUrl = buildAdminLoginUrl(origin)
   if (!fs.existsSync(releaseDir)) fs.mkdirSync(releaseDir, { recursive: true })
   const outPng = path.join(releaseDir, '店主管理登录二维码.png')
@@ -61,11 +50,11 @@ async function main() {
   console.log('>> 登录链接:', loginUrl)
   console.log('>> 已生成:', outPng)
   console.log('>> 链接文本:', outTxt)
-  console.log('>> 须先运行 npm run dev（已开启局域网 host）')
-  console.log('>> 手机须与电脑同一 WiFi，勿用 localhost 扫码')
-  if (origin.includes('localhost')) {
-    console.log('>> 警告：未检测到局域网 IP，请手动指定：')
-    console.log('>>   npm run gen-admin-qr http://192.168.x.x:5173')
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://192.168.')) {
+    console.log('>> 提示：线上管理请先在 deploy.config.json 填 publicUrl，再 gen-admin-qr')
+    console.log('>> adminSecret 须为 GitHub 令牌（repo 读写），仅店主保存此二维码')
+  } else {
+    console.log('>> 与顾客同域名；扫码后手机即可管理，约 1 分钟同步到顾客视图')
   }
 }
 

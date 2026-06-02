@@ -1,41 +1,49 @@
 /**
- * 作品集数据：开发态可从本地 API 热更新，生产态仍用构建时的静态 JS
+ * 作品集数据：本地 dev / 线上店主登录后可热更新
  */
 import { shallowRef } from 'vue'
 import { galleryAlbums as staticAlbums } from '../data/galleryAlbums.js'
+import { isOnlineAdminMode } from './useAdminAuth.js'
+import { requestListAlbums, requestListCategories } from './useGalleryAdminApi.js'
 
-// 响应式相册列表（开发增删后替换）
 const albumsRef = shallowRef(staticAlbums)
-
-// 响应式分类配置（含尚无款式的空分类）
 const categoryOptionsRef = shallowRef([])
-
-// 是否开发环境（Vite 注入，生产 build 为 false）
 const isDev = import.meta.env.DEV
 
-// 读取相册列表
+function canHotReload() {
+  return isDev || isOnlineAdminMode()
+}
+
 export function useGalleryAlbums() {
-  // 从本地 API 拉取分类列表（仅 dev）
   async function reloadCategories() {
-    if (!isDev) return
-    const res = await fetch('/api/gallery/categories')
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.error || '加载分类失败')
+    if (!canHotReload()) return
+    if (isDev) {
+      const res = await fetch('/api/gallery/categories')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || '加载分类失败')
+      }
+      const data = await res.json()
+      categoryOptionsRef.value = [...(data.categories || [])]
+      return
     }
-    const data = await res.json()
+    const data = await requestListCategories()
     categoryOptionsRef.value = [...(data.categories || [])]
   }
 
-  // 从本地 API 拉取最新列表（仅 dev 有效）
   async function reloadAlbums() {
-    if (!isDev) return
-    const res = await fetch('/api/gallery/albums')
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.error || '加载作品集失败')
+    if (!canHotReload()) return
+    if (isDev) {
+      const res = await fetch('/api/gallery/albums')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || '加载作品集失败')
+      }
+      const data = await res.json()
+      albumsRef.value = [...(data.albums || [])]
+      return
     }
-    const data = await res.json()
+    const data = await requestListAlbums()
     albumsRef.value = [...(data.albums || [])]
   }
 

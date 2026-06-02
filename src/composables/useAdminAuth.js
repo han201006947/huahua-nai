@@ -1,30 +1,66 @@
 /**
- * 店主管理登录状态（仅 dev + 有效 session 时可改款式）
+ * 店主管理登录（本地 dev API 或 线上 GitHub Token）
  */
 import { ref } from 'vue'
 
-// sessionStorage 键名
 const SESSION_KEY = 'gallery-admin-session'
-// 是否开发环境
+const GITHUB_TOKEN_KEY = 'gallery-github-token'
 const isDev = import.meta.env.DEV
+const githubRepo = typeof __GITHUB_REPO__ !== 'undefined' ? __GITHUB_REPO__ : ''
+const adminPhoneCfg = typeof __ADMIN_PHONE__ !== 'undefined' ? __ADMIN_PHONE__ : '15235952769'
 
-// 是否已登录（模块级共享，各组件读到同一状态）
 const isAdminLoggedIn = ref(false)
-// 店主手机号展示
-const adminPhone = ref('15235952769')
-// 是否已完成一次初始化（扫码链接会强制再登一次）
+const adminPhone = ref(adminPhoneCfg)
 let initDone = false
 
-// 带 session 头的 fetch
+// 是否线上 GitHub 管理模式（与顾客同链接，无需本地 dev）
+export function isOnlineAdminMode() {
+  return !isDev && Boolean(githubRepo)
+}
+
+// 获取 GitHub PAT（线上写入仓库用）
+export function getGithubToken() {
+  return sessionStorage.getItem(GITHUB_TOKEN_KEY) || ''
+}
+
+// 本地 dev：带 session 头；线上：带 GitHub Token（部分请求走 githubGalleryAdmin）
 export function adminFetch(url, options = {}) {
+  if (isOnlineAdminMode()) {
+    return fetch(url, options)
+  }
   const headers = { ...(options.headers || {}) }
   const session = sessionStorage.getItem(SESSION_KEY)
   if (session) headers['X-Admin-Session'] = session
   return fetch(url, { ...options, headers })
 }
 
-// 用密钥登录并保存 session
-async function loginWithSecret(secret, phone) {
+// 线上：校验 GitHub PAT 是否有效
+async function verifyGithubToken(token) {
+  const res = await fetch('https://api.github.com/user', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  })
+  if (!res.ok) throw new Error('GitHub 令牌无效或已过期，请重新生成店主二维码')
+}
+
+// 线上登录：adminSecret 即为 GitHub PAT（仅店主保存二维码）
+async function loginOnline(secret, phone) {
+  if (phone !== String(adminPhoneCfg).trim()) {
+    throw new Error('仅店主账号可登录管理')
+  }
+  await verifyGithubToken(secret)
+  sessionStorage.setItem(GITHUB_TOKEN_KEY, secret)
+  sessionStorage.setItem(SESSION_KEY, 'online')
+  isAdminLoggedIn.value = true
+  adminPhone.value = phone
+  return true
+}
+
+// 本地 dev：走 Vite 插件 API
+async function loginLocal(secret, phone) {
   const res = await fetch('/api/gallery/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -38,8 +74,29 @@ async function loginWithSecret(secret, phone) {
   return true
 }
 
-// 校验已保存 session 是否仍有效
+async function loginWithSecret(secret, phone) {
+  if (isOnlineAdminMode()) return loginOnline(secret, phone)
+  return loginLocal(secret, phone)
+}
+
 async function validateSession() {
+  if (isOnlineAdminMode()) {
+    const token = getGithubToken()
+    if (!token) {
+      isAdminLoggedIn.value = false
+      return false
+    }
+    try {
+      await verifyGithubToken(token)
+      isAdminLoggedIn.value = true
+      return true
+    } catch {
+      sessionStorage.removeItem(GITHUB_TOKEN_KEY)
+      sessionStorage.removeItem(SESSION_KEY)
+      isAdminLoggedIn.value = false
+      return false
+    }
+  }
   const session = sessionStorage.getItem(SESSION_KEY)
   if (!session) {
     isAdminLoggedIn.value = false
@@ -57,12 +114,11 @@ async function validateSession() {
   return true
 }
 
-// 从 URL ?adminLogin= 参数完成扫码登录
 async function tryLoginFromUrl() {
   const params = new URLSearchParams(window.location.search)
   const secret = params.get('adminLogin')
   if (!secret) return false
-  const phone = params.get('adminPhone') || '15235952769'
+  const phone = params.get('adminPhone') || adminPhoneCfg
   await loginWithSecret(secret, phone)
   params.delete('adminLogin')
   params.delete('adminPhone')
@@ -72,15 +128,14 @@ async function tryLoginFromUrl() {
   return true
 }
 
-// 退出登录
 export function logoutAdmin() {
   sessionStorage.removeItem(SESSION_KEY)
+  sessionStorage.removeItem(GITHUB_TOKEN_KEY)
   isAdminLoggedIn.value = false
 }
 
-// 应用启动时尽早执行：扫码登录或校验旧 session（须在 mount 前 await）
 export async function initAdminAuth() {
-  if (!isDev) {
+  if (!isDev && !isOnlineAdminMode()) {
     isAdminLoggedIn.value = false
     return false
   }
@@ -94,7 +149,9 @@ export async function initAdminAuth() {
     } catch (e) {
       isAdminLoggedIn.value = false
       window.alert(
-        `店主登录失败：${e.message || e}\n\n请确认：\n1. 电脑已运行 npm run dev\n2. 手机与电脑同一 WiFi\n3. 二维码用局域网地址生成：npm run gen-admin-qr http://电脑IP:5173`
+        isOnlineAdminMode()
+          ? `店主登录失败：${e.message || e}\n\n请确认 admin.config.json 中 adminSecret 为 GitHub 令牌，并重新 npm run gen-admin-qr`
+          : `店主登录失败：${e.message || e}\n\n请确认 npm run dev 已启动`
       )
       return false
     }
@@ -109,5 +166,6 @@ export function useAdminAuth() {
     adminPhone,
     initAdminAuth,
     isDev,
+    isOnlineAdminMode,
   }
 }

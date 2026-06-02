@@ -1,8 +1,15 @@
 <script setup>
 // 引入 Vue 响应式 API
 import { ref, computed, onMounted } from 'vue'
-// 带店主 session 的请求
-import { adminFetch, logoutAdmin } from '../composables/useAdminAuth.js'
+// 退出登录
+import { logoutAdmin } from '../composables/useAdminAuth.js'
+import {
+  readFileAsBase64,
+  requestAddAlbum,
+  requestAddCategory,
+  requestDeleteCategory,
+  requestListCategories,
+} from '../composables/useGalleryAdminApi.js'
 // 其他窗口增删后刷新本面板下拉
 import { useGallerySyncListener } from '../composables/useGallerySync.js'
 
@@ -47,9 +54,7 @@ useGallerySyncListener(() => refreshMeta())
 async function refreshMeta() {
   error.value = ''
   try {
-    const catRes = await adminFetch('/api/gallery/categories')
-    if (!catRes.ok) throw new Error('无法连接本地管理接口，请确认已 npm run dev')
-    const catData = await catRes.json()
+    const catData = await requestListCategories()
     categories.value = catData.categories || []
     const keys = categories.value.map((c) => c.key)
     if (!keys.includes(addCategoryKey.value) && categories.value.length) {
@@ -71,16 +76,10 @@ async function submitAddCategory() {
   }
   busy.value = true
   try {
-    const res = await adminFetch('/api/gallery/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        category: name,
-        titlePrefix: newCategoryTitlePrefix.value.trim(),
-      }),
+    const data = await requestAddCategory({
+      category: name,
+      titlePrefix: newCategoryTitlePrefix.value.trim(),
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || '添加分类失败')
     categories.value = data.categories || []
     if (data.category?.key) addCategoryKey.value = data.category.key
     newCategoryName.value = ''
@@ -107,11 +106,7 @@ async function submitDeleteCategory(cat) {
   }
   busy.value = true
   try {
-    const res = await adminFetch(`/api/gallery/categories/${encodeURIComponent(cat.key)}`, {
-      method: 'DELETE',
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || '删除分类失败')
+    const data = await requestDeleteCategory(cat.key)
     categories.value = data.categories || []
     const keys = categories.value.map((c) => c.key)
     if (!keys.includes(addCategoryKey.value) && categories.value.length) {
@@ -127,13 +122,12 @@ async function submitDeleteCategory(cat) {
 }
 
 // 将 File 转为 base64 供 API 写入 public
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(new Error(`读取文件失败：${file.name}`))
-    reader.readAsDataURL(file)
-  })
+async function filesFromInput(list) {
+  const files = []
+  for (const file of list) {
+    files.push({ name: file.name, data: await readFileAsBase64(file) })
+  }
+  return files
 }
 
 // 提交新增款式
@@ -148,24 +142,15 @@ async function submitAdd() {
   }
   busy.value = true
   try {
-    const files = []
-    for (const file of list) {
-      const data = await readFileAsBase64(file)
-      files.push({ name: file.name, data })
-    }
-    const res = await adminFetch('/api/gallery/albums', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        categoryKey: addCategoryKey.value,
-        title: addTitle.value.trim(),
-        stylePreview: addStylePreview.value,
-        files,
-      }),
+    const files = await filesFromInput(list)
+    message.value = '正在上传并同步线上，请稍候…'
+    const data = await requestAddAlbum({
+      categoryKey: addCategoryKey.value,
+      title: addTitle.value.trim(),
+      stylePreview: addStylePreview.value,
+      files,
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || '添加失败')
-    message.value = `已添加款式：${data.album?.title || data.albumId}`
+    message.value = `已添加款式：${data.album?.title || data.albumId}（线上约 1 分钟内更新）`
     addTitle.value = ''
     addStylePreview.value = false
     if (input) input.value = ''
@@ -201,8 +186,8 @@ function handleLogout() {
 
     <div v-if="panelOpen" class="admin-panel">
       <p class="admin-tip">
-        已验证店主 <strong>15235952769</strong> 登录。改动会写入 <code>public/</code> 并同步
-        <code>galleryAlbums.js</code>。其他人无法看到删除按钮或调用管理接口。
+        已验证店主 <strong>15235952769</strong>。改动会同步到 GitHub，约 1 分钟内顾客扫码也能看到。
+        仅店主保存的登录二维码可进入此面板。
       </p>
 
       <p v-if="error" class="admin-error">{{ error }}</p>
