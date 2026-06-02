@@ -25,40 +25,58 @@ function resolveCdnBase(cfg) {
   return `https://cdn.jsdelivr.net/gh/${m[1]}/${m[2]}@gh-pages`
 }
 
-// 在 index.html 注入 CDN 预连接与价目图 preload，加快首屏
+// 扫码后立即显示品牌提示，避免白屏（Vue 挂载后会被替换）
+function injectBootSplash(html) {
+  if (html.includes('id="boot-splash"')) return html
+  const splash =
+    '<div id="boot-splash" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#faf6f1;color:#5c4033;font-family:system-ui,-apple-system,sans-serif">' +
+    '<p style="font-size:1.2rem;margin:0 0 8px;font-weight:600">花花美甲坊</p>' +
+    '<p style="font-size:0.85rem;margin:0;opacity:0.65">正在打开，请稍候…</p></div>'
+  return html.replace('<div id="app"></div>', `<div id="app">${splash}</div>`)
+}
+
+// 在 index.html 注入 CDN 预连接、preload、首屏占位
 function patchIndexHtml(cdnBase) {
-  if (!cdnBase || !fs.existsSync(indexPath)) return
+  if (!fs.existsSync(indexPath)) return
   let html = fs.readFileSync(indexPath, 'utf8')
+  html = injectBootSplash(html)
 
   const verMatch = html.match(/app\.js\?v=(\d+)/)
   const ver = verMatch ? verMatch[1] : ''
-  const heroHref = `${cdnBase}/hb.jpg${ver ? `?v=${ver}` : ''}`
 
-  if (!html.includes('rel="preload" as="image"')) {
-    const hints = [
-      '<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>',
-      '<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">',
-      `<link rel="preload" as="image" href="${heroHref}">`,
-    ].join('\n    ')
-    html = html.replace('</head>', `    ${hints}\n  </head>`)
-  }
+  if (cdnBase) {
+    // 先切换 css/js 到 jsDelivr（须在 preload 之前，避免误判已切换）
+    if (html.includes('./assets/style.css')) {
+      html = html.replace(
+        /href="\.\/assets\/style\.css\?v=(\d+)"/,
+        `href="${cdnBase}/assets/style.css?v=$1"`
+      )
+    }
+    if (html.includes('defer src="./assets/app.js')) {
+      html = html.replace(
+        /defer src="\.\/assets\/app\.js\?v=(\d+)"/,
+        `defer src="${cdnBase}/assets/app.js?v=$1"`
+      )
+      console.log('>> 已将 app.js / style.css 切换为 jsDelivr')
+    }
 
-  // 脚本与样式走 jsDelivr（国内比 github.io 快）
-  if (!html.includes(`${cdnBase}/assets/app.js`)) {
-    html = html.replace(
-      /href="\.\/assets\/style\.css(?:\?v=(\d+))?"/,
-      (_, v) => `href="${cdnBase}/assets/style.css${v ? `?v=${v}` : ver ? `?v=${ver}` : ''}"`
-    )
-    html = html.replace(
-      /src="\.\/assets\/app\.js\?v=(\d+)"/,
-      `src="${cdnBase}/assets/app.js?v=$1"`
-    )
-    console.log('>> 已将 app.js / style.css 切换为 jsDelivr')
+    if (!html.includes('rel="preconnect" href="https://cdn.jsdelivr.net"')) {
+      const cssHref = `${cdnBase}/assets/style.css${ver ? `?v=${ver}` : ''}`
+      const jsHref = `${cdnBase}/assets/app.js${ver ? `?v=${ver}` : ''}`
+      const heroHref = `${cdnBase}/hb.jpg${ver ? `?v=${ver}` : ''}`
+      const hints = [
+        '<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>',
+        '<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">',
+        `<link rel="preload" as="style" href="${cssHref}">`,
+        `<link rel="preload" as="script" href="${jsHref}">`,
+        `<link rel="preload" as="image" href="${heroHref}">`,
+      ].join('\n    ')
+      html = html.replace('</head>', `    ${hints}\n  </head>`)
+    }
   }
 
   fs.writeFileSync(indexPath, html, 'utf8')
-  if (!html.includes('cdn.jsdelivr.net')) return
-  console.log('>> 已注入 jsDelivr 预连接与价目图 preload')
+  if (cdnBase) console.log('>> 已注入 jsDelivr 预连接、preload 与首屏占位')
 }
 
 const cfg = loadDeployConfig()
