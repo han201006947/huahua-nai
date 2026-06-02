@@ -5,10 +5,11 @@ import { ref, onMounted } from 'vue'
 // 父组件在增删成功后刷新网格
 const emit = defineEmits(['changed'])
 
+// 与父组件同步：管理面板是否展开（展开后网格显示删除按钮）
+const panelOpen = defineModel('open', { type: Boolean, default: false })
+
 // 分类选项（彩绘/法式等）
 const categories = ref([])
-// 当前全部相册，供删除列表展示
-const allAlbums = ref([])
 // 新增表单：选中的分类 key
 const addCategoryKey = ref('caihui')
 // 新增表单：自定义标题（可空，空则用自动生成标题）
@@ -17,10 +18,6 @@ const addTitle = ref('')
 const addStylePreview = ref(false)
 // 新增表单：待上传文件列表
 const addFiles = ref(null)
-// 删除表单：选中的相册 id
-const deleteAlbumId = ref('')
-// 面板展开/收起
-const panelOpen = ref(false)
 // 请求进行中
 const busy = ref(false)
 // 操作结果提示
@@ -33,22 +30,14 @@ onMounted(() => {
   refreshMeta()
 })
 
-// 读取分类与相册元数据
+// 读取分类列表
 async function refreshMeta() {
   error.value = ''
   try {
-    const [catRes, albumRes] = await Promise.all([
-      fetch('/api/gallery/categories'),
-      fetch('/api/gallery/albums'),
-    ])
-    if (!catRes.ok || !albumRes.ok) throw new Error('无法连接本地管理接口，请确认已 npm run dev')
+    const catRes = await fetch('/api/gallery/categories')
+    if (!catRes.ok) throw new Error('无法连接本地管理接口，请确认已 npm run dev')
     const catData = await catRes.json()
-    const albumData = await albumRes.json()
     categories.value = catData.categories || []
-    allAlbums.value = albumData.albums || []
-    if (!deleteAlbumId.value && allAlbums.value.length) {
-      deleteAlbumId.value = allAlbums.value[0].id
-    }
   } catch (e) {
     error.value = e.message || String(e)
   }
@@ -106,36 +95,7 @@ async function submitAdd() {
   }
 }
 
-// 确认后删除款式
-async function submitDelete() {
-  error.value = ''
-  message.value = ''
-  if (!deleteAlbumId.value) {
-    error.value = '请选择要删除的款式'
-    return
-  }
-  const target = allAlbums.value.find((a) => a.id === deleteAlbumId.value)
-  const label = target?.title || deleteAlbumId.value
-  if (!window.confirm(`确定删除「${label}」？\n将删除 public 内对应图片/视频，且不可恢复。`)) return
-  busy.value = true
-  try {
-    const res = await fetch(`/api/gallery/albums/${encodeURIComponent(deleteAlbumId.value)}`, {
-      method: 'DELETE',
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || '删除失败')
-    message.value = `已删除：${label}`
-    deleteAlbumId.value = ''
-    await refreshMeta()
-    emit('changed')
-  } catch (e) {
-    error.value = e.message || String(e)
-  } finally {
-    busy.value = false
-  }
-}
-
-// 切换面板展开
+// 切换面板展开（展开后父组件在卡片右下角显示删除）
 function togglePanel() {
   panelOpen.value = !panelOpen.value
 }
@@ -151,7 +111,8 @@ function togglePanel() {
     <div v-if="panelOpen" class="admin-panel">
       <p class="admin-tip">
         仅在 <strong>npm run dev</strong> 下可用；会直接改动 <code>public/</code> 并同步
-        <code>galleryAlbums.js</code>。满意后再自行 <code>npm run deploy</code> 上传 GitHub。
+        <code>galleryAlbums.js</code>。展开后可在下方每个款式<strong>右下角点「删除」</strong>；满意后再
+        <code>npm run deploy</code> 上传 GitHub。
       </p>
 
       <p v-if="error" class="admin-error">{{ error }}</p>
@@ -159,7 +120,7 @@ function togglePanel() {
 
       <div class="admin-grid">
         <!-- 新增款式 -->
-        <section class="admin-block">
+        <section class="admin-block admin-block-full">
           <h4 class="admin-heading">添加款式</h4>
           <label class="admin-field">
             <span>分类</span>
@@ -183,22 +144,6 @@ function togglePanel() {
           </label>
           <button type="button" class="admin-btn admin-btn-add" :disabled="busy" @click="submitAdd">
             {{ busy ? '处理中…' : '添加款式' }}
-          </button>
-        </section>
-
-        <!-- 删除款式 -->
-        <section class="admin-block">
-          <h4 class="admin-heading">删除款式</h4>
-          <label class="admin-field">
-            <span>选择款式</span>
-            <select v-model="deleteAlbumId" :disabled="busy">
-              <option v-for="a in allAlbums" :key="a.id" :value="a.id">
-                [{{ a.category }}] {{ a.title }}（{{ a.id }}）
-              </option>
-            </select>
-          </label>
-          <button type="button" class="admin-btn admin-btn-del" :disabled="busy" @click="submitDelete">
-            {{ busy ? '处理中…' : '删除所选款式' }}
           </button>
         </section>
       </div>
@@ -256,15 +201,11 @@ function togglePanel() {
 }
 
 .admin-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  display: block;
 }
 
-@media (max-width: 720px) {
-  .admin-grid {
-    grid-template-columns: 1fr;
-  }
+.admin-block-full {
+  max-width: 420px;
 }
 
 .admin-block {
@@ -323,11 +264,5 @@ function togglePanel() {
 .admin-btn-add {
   background: #5c4033;
   color: #fff;
-}
-
-.admin-btn-del {
-  background: #fdecea;
-  color: #b42318;
-  border: 1px solid #fecdca;
 }
 </style>

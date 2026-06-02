@@ -5,6 +5,8 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineAsyncComp
 import { STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
 // 作品集列表：开发态可热更新
 import { useGalleryAlbums } from '../composables/useGalleryAlbums.js'
+// 本地 dev 删除款式 API
+import { requestDeleteAlbum } from '../composables/useGalleryAdminApi.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
 import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
 
@@ -15,6 +17,12 @@ const { albums, reloadAlbums, isDev } = useGalleryAlbums()
 const GalleryAdminPanel = isDev
   ? defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
   : null
+
+// 管理面板是否展开（展开时在卡片右下角显示删除）
+const adminPanelOpen = ref(false)
+
+// 正在删除的相册 id（防止重复点击）
+const deletingAlbumId = ref('')
 
 // 当前筛选分类，空字符串表示全部
 const activeCategory = ref('')
@@ -209,6 +217,20 @@ async function onGalleryAdminChanged() {
   nextTick(() => bindGalleryObserver())
 }
 
+// 点击卡片右下角删除（仅 dev + 管理面板展开时可见）
+async function deleteAlbumFromGrid(album) {
+  if (!window.confirm(`确定删除「${album.title}」？\n将删除 public 内对应图片/视频，且不可恢复。`)) return
+  deletingAlbumId.value = album.id
+  try {
+    await requestDeleteAlbum(album.id)
+    await onGalleryAdminChanged()
+  } catch (e) {
+    window.alert(e.message || String(e))
+  } finally {
+    deletingAlbumId.value = ''
+  }
+}
+
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   galleryObserver?.disconnect()
@@ -229,7 +251,11 @@ onUnmounted(() => {
       </div>
 
       <!-- 仅 npm run dev：本地增删款式，不上线 -->
-      <GalleryAdminPanel v-if="isDev && GalleryAdminPanel" @changed="onGalleryAdminChanged" />
+      <GalleryAdminPanel
+        v-if="isDev && GalleryAdminPanel"
+        v-model:open="adminPanelOpen"
+        @changed="onGalleryAdminChanged"
+      />
 
       <!-- 分类筛选标签 -->
       <div class="filter-bar">
@@ -289,6 +315,17 @@ onUnmounted(() => {
               <h3 class="gallery-title">{{ album.title }}</h3>
               <span class="gallery-hint">点击查看详情</span>
             </div>
+            <!-- 本地管理展开时：右下角删除（阻止冒泡，避免打开详情） -->
+            <button
+              v-if="isDev && adminPanelOpen"
+              type="button"
+              class="gallery-delete-btn"
+              :disabled="deletingAlbumId === album.id"
+              aria-label="删除款式"
+              @click.stop="deleteAlbumFromGrid(album)"
+            >
+              {{ deletingAlbumId === album.id ? '删除中…' : '删除' }}
+            </button>
           </div>
         </figure>
       </div>
@@ -635,6 +672,32 @@ onUnmounted(() => {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.85);
   margin-top: 8px;
+}
+
+/* 本地 dev：管理面板展开时，卡片右下角删除 */
+.gallery-delete-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(180, 35, 24, 0.92);
+  color: #fff;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.gallery-delete-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.gallery-delete-btn:hover:not(:disabled) {
+  background: rgba(150, 25, 15, 0.95);
 }
 
 .album-modal {
