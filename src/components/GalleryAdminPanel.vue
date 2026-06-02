@@ -1,6 +1,8 @@
 <script setup>
 // 引入 Vue 响应式 API
 import { ref, onMounted } from 'vue'
+// 带店主 session 的请求
+import { adminFetch, logoutAdmin } from '../composables/useAdminAuth.js'
 
 // 父组件在增删成功后刷新网格
 const emit = defineEmits(['changed'])
@@ -37,7 +39,7 @@ onMounted(() => {
 async function refreshMeta() {
   error.value = ''
   try {
-    const catRes = await fetch('/api/gallery/categories')
+    const catRes = await adminFetch('/api/gallery/categories')
     if (!catRes.ok) throw new Error('无法连接本地管理接口，请确认已 npm run dev')
     const catData = await catRes.json()
     categories.value = catData.categories || []
@@ -61,7 +63,7 @@ async function submitAddCategory() {
   }
   busy.value = true
   try {
-    const res = await fetch('/api/gallery/categories', {
+    const res = await adminFetch('/api/gallery/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,7 +113,7 @@ async function submitAdd() {
       const data = await readFileAsBase64(file)
       files.push({ name: file.name, data })
     }
-    const res = await fetch('/api/gallery/albums', {
+    const res = await adminFetch('/api/gallery/albums', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -136,9 +138,16 @@ async function submitAdd() {
   }
 }
 
-// 切换面板展开（展开后父组件在卡片右下角显示删除）
+// 切换面板展开
 function togglePanel() {
   panelOpen.value = !panelOpen.value
+}
+
+// 退出店主登录
+function handleLogout() {
+  logoutAdmin()
+  panelOpen.value = false
+  window.location.reload()
 }
 </script>
 
@@ -146,14 +155,14 @@ function togglePanel() {
   <!-- 本地开发专用：作品集增删（不会随 deploy 上线） -->
   <div class="gallery-admin">
     <button type="button" class="admin-toggle" @click="togglePanel">
-      {{ panelOpen ? '收起款式管理' : '管理款式（仅本地）' }}
+      {{ panelOpen ? '收起款式管理' : '管理款式（店主已登录）' }}
     </button>
+    <button type="button" class="admin-logout" @click="handleLogout">退出登录</button>
 
     <div v-if="panelOpen" class="admin-panel">
       <p class="admin-tip">
-        仅在 <strong>npm run dev</strong> 下可用；会直接改动 <code>public/</code> 并同步
-        <code>galleryAlbums.js</code>。可先<strong>添加分类</strong>再添加款式；分类与筛选 Tab 会实时更新。每个款式卡片<strong>右下角有「删除」</strong>；满意后再
-        <code>npm run deploy</code> 上传 GitHub。
+        已验证店主 <strong>15235952769</strong> 登录。改动会写入 <code>public/</code> 并同步
+        <code>galleryAlbums.js</code>。其他人无法看到删除按钮或调用管理接口。
       </p>
 
       <p v-if="error" class="admin-error">{{ error }}</p>
@@ -221,6 +230,20 @@ function togglePanel() {
 <style scoped>
 .gallery-admin {
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-logout {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid #dccfbf;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b5344;
+  font-size: 0.82rem;
+  cursor: pointer;
 }
 
 .admin-toggle {

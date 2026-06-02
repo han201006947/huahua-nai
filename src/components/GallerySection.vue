@@ -5,6 +5,8 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineAsyncComp
 import { STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
 // 作品集列表：开发态可热更新
 import { useGalleryAlbums } from '../composables/useGalleryAlbums.js'
+// 店主登录后才可管理
+import { useAdminAuth } from '../composables/useAdminAuth.js'
 // 本地 dev 删除款式 API
 import {
   readFileAsBase64,
@@ -18,13 +20,24 @@ import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, reloadAlbums, reloadCategories, isDev } = useGalleryAlbums()
 
+// 店主 session（15235952769 扫码登录）
+const { isAdminLoggedIn, initAdminAuth } = useAdminAuth()
+
+// 是否允许管理/删除（dev 且已登录）
+const canManage = computed(() => isDev && isAdminLoggedIn.value)
+
+// 未登录提示
+const AdminLoginPanel = isDev
+  ? defineAsyncComponent(() => import('./AdminLoginPanel.vue'))
+  : null
+
 // 开发环境才加载本地管理面板（不会打进生产包）
 const GalleryAdminPanel = isDev
   ? defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
   : null
 
-// 管理面板是否展开（dev 默认展开便于添加款式）
-const adminPanelOpen = ref(isDev)
+// 管理面板是否展开（登录后默认展开）
+const adminPanelOpen = ref(false)
 
 // 正在删除的相册 id（防止重复点击）
 const deletingAlbumId = ref('')
@@ -235,9 +248,11 @@ function onKeydown(event) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   if (isDev) {
+    await initAdminAuth()
+    if (isAdminLoggedIn.value) adminPanelOpen.value = true
     reloadCategories().catch(() => {})
   }
   // dev 删款 reload 后滚回作品集区域
@@ -352,9 +367,10 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <!-- 仅 npm run dev：本地增删款式，不上线 -->
+      <!-- dev：未登录只显示提示；已登录才显示管理面板 -->
+      <AdminLoginPanel v-if="isDev && !canManage && AdminLoginPanel" />
       <GalleryAdminPanel
-        v-if="isDev && GalleryAdminPanel"
+        v-if="canManage && GalleryAdminPanel"
         v-model:open="adminPanelOpen"
         @changed="onGalleryAdminChanged"
       />
@@ -427,7 +443,7 @@ onUnmounted(() => {
             </div>
             <!-- 本地 dev：右下角删除（无需先展开管理面板） -->
             <button
-              v-if="isDev"
+              v-if="canManage"
               type="button"
               class="gallery-delete-btn"
               :disabled="deletingAlbumId === album.id"
@@ -504,7 +520,7 @@ onUnmounted(() => {
               />
               <!-- 本地 dev：删除单张图/视频 -->
               <button
-                v-if="isDev"
+                v-if="canManage"
                 type="button"
                 class="album-media-del"
                 :disabled="mediaActionBusy"
@@ -515,7 +531,7 @@ onUnmounted(() => {
               </button>
             </div>
             <!-- 本地 dev：向当前款式追加媒体 -->
-            <div v-if="isDev" class="album-media-add">
+            <div v-if="canManage" class="album-media-add">
               <input
                 ref="albumMediaInput"
                 type="file"

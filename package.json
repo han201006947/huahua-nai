@@ -14,7 +14,8 @@
     "share": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/online-github.ps1",
     "deploy": "npm run build && node scripts/deploy-github-pages.mjs",
     "public": "node scripts/public-tunnel.mjs",
-    "gen-qr": "node scripts/generate-customer-qr.mjs"
+    "gen-qr": "node scripts/generate-customer-qr.mjs",
+    "gen-admin-qr": "node scripts/generate-admin-login-qr.mjs"
   },
   "dependencies": {
     "vue": "^3.5.34"

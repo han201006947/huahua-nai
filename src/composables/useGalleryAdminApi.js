@@ -1,10 +1,11 @@
 /**
- * 本地 dev 作品集管理 API（款式 / 详情内媒体）
+ * 本地 dev 作品集管理 API（款式 / 详情内媒体，需店主 session）
  */
+import { adminFetch } from './useAdminAuth.js'
 
 // 删除整个款式
 export async function requestDeleteAlbum(albumId) {
-  const res = await fetch(`/api/gallery/albums/${encodeURIComponent(albumId)}`, {
+  const res = await adminFetch(`/api/gallery/albums/${encodeURIComponent(albumId)}`, {
     method: 'DELETE',
   })
   const data = await res.json()
@@ -14,7 +15,7 @@ export async function requestDeleteAlbum(albumId) {
 
 // 删除款式内单张图/单个视频
 export async function requestDeleteAlbumMedia(albumId, src) {
-  const res = await fetch(`/api/gallery/albums/${encodeURIComponent(albumId)}/media`, {
+  const res = await adminFetch(`/api/gallery/albums/${encodeURIComponent(albumId)}/media`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ src }),
@@ -26,7 +27,7 @@ export async function requestDeleteAlbumMedia(albumId, src) {
 
 // 向已有款式追加图片/视频
 export async function requestAddAlbumMedia(albumId, files) {
-  const res = await fetch(`/api/gallery/albums/${encodeURIComponent(albumId)}/media`, {
+  const res = await adminFetch(`/api/gallery/albums/${encodeURIComponent(albumId)}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ files }),
