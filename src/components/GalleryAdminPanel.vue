@@ -111,7 +111,7 @@ function togglePanel() {
     <div v-if="panelOpen" class="admin-panel">
       <p class="admin-tip">
         仅在 <strong>npm run dev</strong> 下可用；会直接改动 <code>public/</code> 并同步
-        <code>galleryAlbums.js</code>。展开后可在下方每个款式<strong>右下角点「删除」</strong>；满意后再
+        <code>galleryAlbums.js</code>。每个款式卡片<strong>右下角有「删除」</strong>；满意后再
         <code>npm run deploy</code> 上传 GitHub。
       </p>
 

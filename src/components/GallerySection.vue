@@ -18,8 +18,8 @@ const GalleryAdminPanel = isDev
   ? defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
   : null
 
-// 管理面板是否展开（展开时在卡片右下角显示删除）
-const adminPanelOpen = ref(false)
+// 管理面板是否展开（dev 默认展开便于添加款式）
+const adminPanelOpen = ref(isDev)
 
 // 正在删除的相册 id（防止重复点击）
 const deletingAlbumId = ref('')
@@ -104,18 +104,28 @@ function gridCoverIsVideo(album) {
   return /\.(mp4|webm|mov)$/i.test(album.cover || '')
 }
 
-// 相册封面缩略图是否应开始加载（视口内才设 src）
+// 相册封面缩略图是否应开始加载（dev 下直接加载，避免懒加载导致空白）
 function shouldLoadCover(album) {
   if (gridCoverIsVideo(album)) return false
+  if (isDev) return true
   return visibleAlbumIds.value.has(album.id)
 }
 
-// 网格封面加载失败时回退到原图（如 CDN 尚未同步 thumb）
+// 封面图加载失败 id 集合（显示占位而不重复 alt 文字）
+const coverFailedIds = ref(new Set())
+
+// 封面加载失败：回退原图或标记占位
 function onCoverImgError(event, album) {
   const img = event.target
   const fallback = assetUrl(album.cover)
-  if (img.dataset.fallback === '1') return
-  if (!fallback || img.src === fallback) return
+  if (img.dataset.fallback === '1') {
+    coverFailedIds.value = new Set([...coverFailedIds.value, album.id])
+    return
+  }
+  if (!fallback || img.src === fallback) {
+    coverFailedIds.value = new Set([...coverFailedIds.value, album.id])
+    return
+  }
   img.dataset.fallback = '1'
   img.src = fallback
 }
@@ -214,10 +224,12 @@ function onKeydown(event) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-  // 删款后 reload 回来：恢复「管理款式」面板展开
-  if (isDev && sessionStorage.getItem('gallery-admin-open') === '1') {
-    adminPanelOpen.value = true
-    sessionStorage.removeItem('gallery-admin-open')
+  // dev 删款 reload 后滚回作品集区域
+  if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
+    sessionStorage.removeItem('gallery-scroll-restore')
+    nextTick(() => {
+      document.getElementById('gallery')?.scrollIntoView({ behavior: 'instant', block: 'start' })
+    })
   }
   nextTick(() => bindGalleryObserver())
 })
@@ -231,6 +243,7 @@ async function onGalleryAdminChanged() {
   if (activeAlbum.value) closeAlbum()
   if (lightboxSrc.value) closeLightbox()
   landscapeKeys.value = new Set()
+  coverFailedIds.value = new Set()
   await reloadAlbums()
   galleryListKey.value += 1
   await nextTick()
@@ -243,10 +256,7 @@ async function deleteAlbumFromGrid(album) {
   deletingAlbumId.value = album.id
   try {
     await requestDeleteAlbum(album.id)
-    // 记住面板展开，刷新后仍停在管理模式
-    if (adminPanelOpen.value) {
-      sessionStorage.setItem('gallery-admin-open', '1')
-    }
+    sessionStorage.setItem('gallery-scroll-restore', '1')
     window.location.reload()
   } catch (e) {
     window.alert(e.message || String(e))
@@ -317,11 +327,19 @@ onUnmounted(() => {
             >
               <span class="gallery-video-ph-icon">▶</span>
             </div>
+            <!-- 封面缺失占位（文件已删或路径错误时不显示重复标题） -->
+            <div
+              v-if="coverFailedIds.has(album.id)"
+              class="gallery-media gallery-cover-missing"
+              aria-hidden="true"
+            >
+              <span>暂无图片</span>
+            </div>
             <img
-              v-else
+              v-else-if="!gridCoverIsVideo(album)"
               class="gallery-media"
               :src="shouldLoadCover(album) ? coverThumbUrl(album.cover) : undefined"
-              :alt="album.title"
+              alt=""
               loading="lazy"
               decoding="async"
               @load="markLandscapeIfNeeded($event, 'cover-' + album.id)"
@@ -338,9 +356,9 @@ onUnmounted(() => {
               <h3 class="gallery-title">{{ album.title }}</h3>
               <span class="gallery-hint">点击查看详情</span>
             </div>
-            <!-- 本地管理展开时：右下角删除（阻止冒泡，避免打开详情） -->
+            <!-- 本地 dev：右下角删除（无需先展开管理面板） -->
             <button
-              v-if="isDev && adminPanelOpen"
+              v-if="isDev"
               type="button"
               class="gallery-delete-btn"
               :disabled="deletingAlbumId === album.id"
@@ -526,6 +544,19 @@ onUnmounted(() => {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
+/* 封面文件缺失时的占位（避免 alt 文字顶在卡片上方） */
+.gallery-cover-missing {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #efe6dc 0%, #d4c4b0 100%);
+  color: rgba(92, 64, 51, 0.55);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+
 /* 视频封面与图片同等裁切展示 */
 .gallery-img-wrap video.gallery-media {
   width: 100%;
@@ -697,21 +728,22 @@ onUnmounted(() => {
   margin-top: 8px;
 }
 
-/* 本地 dev：管理面板展开时，卡片右下角删除 */
+/* 本地 dev：卡片右下角删除，常驻可见 */
 .gallery-delete-btn {
   position: absolute;
   right: 10px;
   bottom: 10px;
-  z-index: 4;
+  z-index: 5;
   padding: 5px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 8px;
-  background: rgba(180, 35, 24, 0.92);
+  background: rgba(180, 35, 24, 0.94);
   color: #fff;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
 }
 
 .gallery-delete-btn:disabled {
