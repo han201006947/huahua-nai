@@ -45,34 +45,18 @@ function patchIndexHtml(cdnBase) {
   const ver = verMatch ? verMatch[1] : ''
 
   if (cdnBase) {
-    // 先切换 css/js 到 jsDelivr（须在 preload 之前，避免误判已切换）
-    if (html.includes('./assets/style.css')) {
-      html = html.replace(
-        /href="\.\/assets\/style\.css\?v=(\d+)"/,
-        `href="${cdnBase}/assets/style.css?v=$1"`
-      )
-    }
-    if (html.includes('defer src="./assets/app.js')) {
-      html = html.replace(
-        /defer src="\.\/assets\/app\.js\?v=(\d+)"/,
-        `defer src="${cdnBase}/assets/app.js?v=$1"`
-      )
-      console.log('>> 已将 app.js / style.css 切换为 jsDelivr')
-    }
-
+    // style.css / app.js 必须留在 GitHub Pages（./assets/…），勿改 jsDelivr：
+    // jsDelivr 对 gh-pages 的 CSS 常 502，会导致整页无样式；大图仍由 Vue 内 assetUrl() 走 CDN
     if (!html.includes('rel="preconnect" href="https://cdn.jsdelivr.net"')) {
-      const cssHref = `${cdnBase}/assets/style.css${ver ? `?v=${ver}` : ''}`
-      const jsHref = `${cdnBase}/assets/app.js${ver ? `?v=${ver}` : ''}`
       const heroHref = `${cdnBase}/hb.jpg${ver ? `?v=${ver}` : ''}`
       const hints = [
         '<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>',
         '<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">',
-        `<link rel="preload" as="style" href="${cssHref}">`,
-        `<link rel="preload" as="script" href="${jsHref}">`,
         `<link rel="preload" as="image" href="${heroHref}">`,
       ].join('\n    ')
       html = html.replace('</head>', `    ${hints}\n  </head>`)
     }
+    console.log('>> CSS/JS 保留 github.io；价目图 preload 走 jsDelivr')
   }
 
   fs.writeFileSync(indexPath, html, 'utf8')
