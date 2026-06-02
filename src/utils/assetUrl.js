@@ -21,12 +21,16 @@ export function assetUrl(path) {
   return withBase(rel)
 }
 
-// 作品集网格：加载 .thumb 小图（约 320px，十几 KB）
+// 作品集网格：线上 load .thumb 小图；本地 dev 用原图（thumb 要 build 后才生成）
 export function coverThumbUrl(src) {
   if (!src) return src
   if (/^https?:\/\//i.test(src)) return src
   if (/\.(mp4|webm|mov)$/i.test(src)) return src
   const rel = String(src).replace(/^\.\//, '').replace(/^\//, '')
+  // 开发态新增款式尚未 build，public 里没有 .thumb 文件
+  if (import.meta.env.DEV) {
+    return withBase(rel)
+  }
   const thumb = rel.replace(/(\.[a-z0-9]+)$/i, '.thumb$1')
   return withBase(thumb)
 }

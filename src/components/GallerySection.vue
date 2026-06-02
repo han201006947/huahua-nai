@@ -99,6 +99,16 @@ function shouldLoadCover(album) {
   return visibleAlbumIds.value.has(album.id)
 }
 
+// 网格封面加载失败时回退到原图（如 CDN 尚未同步 thumb）
+function onCoverImgError(event, album) {
+  const img = event.target
+  const fallback = assetUrl(album.cover)
+  if (img.dataset.fallback === '1') return
+  if (!fallback || img.src === fallback) return
+  img.dataset.fallback = '1'
+  img.src = fallback
+}
+
 // 绑定作品集网格 IntersectionObserver
 function bindGalleryObserver() {
   if (galleryObserver) galleryObserver.disconnect()
@@ -261,11 +271,12 @@ onUnmounted(() => {
             <img
               v-else
               class="gallery-media"
-              :src="shouldLoadCover(album) ? assetUrl(coverThumbUrl(album.cover)) : undefined"
+              :src="shouldLoadCover(album) ? coverThumbUrl(album.cover) : undefined"
               :alt="album.title"
               loading="lazy"
               decoding="async"
               @load="markLandscapeIfNeeded($event, 'cover-' + album.id)"
+              @error="onCoverImgError($event, album)"
             />
             <span v-if="album.hasVideo" class="video-badge">▶ 含视频</span>
             <!-- 穿戴甲贴手角标：戴手仅看款式，常驻左上角 -->

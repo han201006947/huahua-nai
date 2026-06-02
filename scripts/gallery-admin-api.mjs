@@ -127,14 +127,16 @@ function nextFolderName(catDir, folderPrefix) {
   return `${folderPrefix}${max + 1}`
 }
 
-// 校验上传文件名与扩展名
-function sanitizeFileName(name) {
-  const base = path.basename(String(name || 'photo.jpg'))
+// 校验上传文件名与扩展名（保留中文，去掉路径等特殊字符）
+function sanitizeFileName(name, index = 0) {
+  const base = path.basename(String(name || `photo-${index + 1}.jpg`))
   const ext = path.extname(base).toLowerCase()
   if (!IMAGE_EXT.has(ext) && !VIDEO_EXT.has(ext)) {
     throw new Error(`不支持的文件类型：${ext || '(无扩展名)'}`)
   }
-  return base.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const stem = path.parse(base).name
+  const safeStem = stem.replace(/[^\w\u4e00-\u9fff.-]/g, '_').replace(/_+/g, '_').slice(0, 80)
+  return `${safeStem || `photo-${index + 1}`}${ext}`
 }
 
 // 解码 base64 文件内容
@@ -160,7 +162,7 @@ export async function addAlbum(payload) {
 
   for (let i = 0; i < files.length; i += 1) {
     const item = files[i]
-    const safeName = sanitizeFileName(item.name || `media-${i + 1}.jpg`)
+    const safeName = sanitizeFileName(item.name, i)
     const buf = decodeBase64(item.data)
     if (!buf.length) throw new Error(`文件 ${safeName} 内容为空`)
     fs.writeFileSync(path.join(albumDir, safeName), buf)

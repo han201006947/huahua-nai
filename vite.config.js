@@ -25,13 +25,14 @@ function resolveCdnBase() {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [vue(), galleryAdminPlugin()],
   // 相对路径：支持本地 file:// 与离线包内嵌浏览
   base: './',
   define: {
     __SITE_BUILD_VER__: JSON.stringify(siteBuildVer),
-    __CDN_BASE__: JSON.stringify(resolveCdnBase()),
+    // 仅生产 build 走 jsDelivr；dev 新增款式还在 public，CDN 上没有
+    __CDN_BASE__: JSON.stringify(command === 'build' ? resolveCdnBase() : ''),
   },
   build: {
     // 关闭 module 分包，便于 file:// 直接打开（Chrome / 手机浏览器）
@@ -46,4 +47,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))
