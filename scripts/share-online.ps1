@@ -1,4 +1,4 @@
-# 打包完整 dist（含视频）供免费静态托管上传，顾客扫码/点链接即看
+# Full dist zip (with videos) for free static hosting; customer opens via link or QR
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -8,7 +8,6 @@ $ReleaseDir = Join-Path $ProjectRoot 'release'
 $ZipPath = Join-Path $ReleaseDir 'website-upload.zip'
 $UpmaUrl = 'https://www.upma.cn/'
 
-# 若无构建产物则先执行 npm run build
 if (-not (Test-Path (Join-Path $DistDir 'index.html'))) {
     Write-Host '>> dist missing, running npm run build ...'
     Push-Location $ProjectRoot
@@ -16,13 +15,11 @@ if (-not (Test-Path (Join-Path $DistDir 'index.html'))) {
     Pop-Location
 }
 
-# 清空并重建临时分享目录
 if (Test-Path $ShareDir) {
     Remove-Item -LiteralPath $ShareDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $ShareDir -Force | Out-Null
 
-# 完整复制 dist（保留 .mp4/.mov/.webm 等视频，作品页可正常播放）
 Write-Host '>> copy full dist including videos ...'
 robocopy $DistDir $ShareDir /E /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed: $LASTEXITCODE" }
