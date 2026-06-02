@@ -25,6 +25,6 @@
 
 ## Git 提交
 
-- **是否已提交**：待 commit 后回填
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：e315e1f（master，未 push）
+- **提交说明**：chore: 更新 huahua-nai 部署示例地址
