@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-offline.ps1",
     "out": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-offline.ps1",
-    "share": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/share-online.ps1",
+    "online": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/online-netlify.ps1",
+    "share": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/online-netlify.ps1",
     "gen-qr": "node scripts/generate-customer-qr.mjs"
   },
   "dependencies": {
