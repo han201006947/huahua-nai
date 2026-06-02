@@ -26,11 +26,6 @@ const { isAdminLoggedIn, initAdminAuth } = useAdminAuth()
 // 是否允许管理/删除（dev 且已登录）
 const canManage = computed(() => isDev && isAdminLoggedIn.value)
 
-// 未登录提示
-const AdminLoginPanel = isDev
-  ? defineAsyncComponent(() => import('./AdminLoginPanel.vue'))
-  : null
-
 // 开发环境才加载本地管理面板（不会打进生产包）
 const GalleryAdminPanel = isDev
   ? defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
@@ -385,8 +380,7 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <!-- dev：未登录只显示提示；已登录才显示管理面板 -->
-      <AdminLoginPanel v-if="isDev && !canManage && AdminLoginPanel" />
+      <!-- dev：已登录才显示管理面板；未登录不展示任何说明文字，店主用二维码扫码登录 -->
       <GalleryAdminPanel
         v-if="canManage && GalleryAdminPanel"
         v-model:open="adminPanelOpen"
