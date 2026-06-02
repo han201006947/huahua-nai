@@ -1,0 +1,23 @@
+{
+  "name": "nail-beauty",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "sync-gallery": "node scripts/sync-gallery-albums.mjs",
+    "build": "npm run sync-gallery && vite build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fix-dist-html.ps1 && node scripts/inject-site-url.mjs",
+    "preview": "vite preview",
+    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-offline.ps1",
+    "share": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/share-online.ps1",
+    "gen-qr": "node scripts/generate-customer-qr.mjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.34"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.6",
+    "qrcode": "^1.5.4",
+    "vite": "^8.0.12"
+  }
+}
