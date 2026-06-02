@@ -11,14 +11,10 @@ const publicRoot = path.join(projectRoot, 'public')
 const outFile = path.join(projectRoot, 'src', 'data', 'galleryAlbums.js')
 const overridesFile = path.join(projectRoot, 'src', 'data', 'galleryAlbums.overrides.js')
 
-// 分类文件夹 → 网站显示名与标题前缀
-const CATEGORIES = [
-  { dir: 'caihui', key: 'caihui', category: '彩绘', titlePrefix: '手绘彩绘' },
-  { dir: 'fashi', key: 'fashi', category: '法式', titlePrefix: '法式款式' },
-  { dir: 'jianbian', key: 'jianbian', category: '渐变款', titlePrefix: '渐变美甲' },
-  { dir: 'maoyan', key: 'maoyan', category: '猫眼', titlePrefix: '猫眼星辰' },
-  { dir: 'zhuti', key: 'zhuti', category: '主题款', titlePrefix: '主题款' },
-]
+import { GALLERY_CATEGORIES } from './gallery-categories.mjs'
+
+// 分类文件夹 → 网站显示名与标题前缀（与 gallery-categories.mjs 共用）
+const CATEGORIES = GALLERY_CATEGORIES
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
 const VIDEO_EXT = new Set(['.mp4', '.webm', '.mov'])

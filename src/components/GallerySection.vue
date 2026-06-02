@@ -1,10 +1,20 @@
 <script setup>
 // 从 vue 引入响应式 API 与生命周期
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-// 引入按文件夹组织的相册数据与穿戴甲贴手示意文案
-import { galleryAlbums, STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineAsyncComponent } from 'vue'
+// 引入穿戴甲贴手示意文案
+import { STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
+// 作品集列表：开发态可热更新
+import { useGalleryAlbums } from '../composables/useGalleryAlbums.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
 import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
+
+// 相册数据与 reload（仅 dev 走 API）
+const { albums, reloadAlbums, isDev } = useGalleryAlbums()
+
+// 开发环境才加载本地管理面板（不会打进生产包）
+const GalleryAdminPanel = isDev
+  ? defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
+  : null
 
 // 当前筛选分类，空字符串表示全部
 const activeCategory = ref('')
@@ -66,16 +76,16 @@ function isCoverLandscapeVideo(album) {
 
 // 提取所有不重复的分类标签
 const categories = computed(() => {
-  const set = new Set(galleryAlbums.map((item) => item.category))
+  const set = new Set(albums.value.map((item) => item.category))
   return ['全部', ...set]
 })
 
 // 根据选中分类过滤相册
 const filteredAlbums = computed(() => {
   if (!activeCategory.value || activeCategory.value === '全部') {
-    return galleryAlbums
+    return albums.value
   }
-  return galleryAlbums.filter((item) => item.category === activeCategory.value)
+  return albums.value.filter((item) => item.category === activeCategory.value)
 })
 
 // 网格封面是否为纯视频（不在列表里预加载 mp4，点开详情再看）
@@ -182,6 +192,13 @@ watch(filteredAlbums, () => {
   nextTick(() => bindGalleryObserver())
 })
 
+// 本地管理增删后刷新列表与懒加载观察器
+async function onGalleryAdminChanged() {
+  await reloadAlbums()
+  visibleAlbumIds.value = new Set()
+  nextTick(() => bindGalleryObserver())
+}
+
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   galleryObserver?.disconnect()
@@ -200,6 +217,9 @@ onUnmounted(() => {
           每一款设计都是匠心之作，点击作品可查看该款式下的照片与视频。
         </p>
       </div>
+
+      <!-- 仅 npm run dev：本地增删款式，不上线 -->
+      <GalleryAdminPanel v-if="isDev && GalleryAdminPanel" @changed="onGalleryAdminChanged" />
 
       <!-- 分类筛选标签 -->
       <div class="filter-bar">

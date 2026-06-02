@@ -3,6 +3,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { galleryAdminPlugin } from './scripts/gallery-admin-plugin.mjs'
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url))
 
@@ -25,7 +26,7 @@ function resolveCdnBase() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), galleryAdminPlugin()],
   // 相对路径：支持本地 file:// 与离线包内嵌浏览
   base: './',
   define: {
