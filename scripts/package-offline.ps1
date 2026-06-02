@@ -14,6 +14,10 @@ $ReadmeCn = [string]::Concat(
     [char]0x8BF4, [char]0x660E, '.txt'
 )
 $ReadmeSrc = Join-Path $ResourcesDir 'usage.txt'
+$WifiOnceSrc = Join-Path $ResourcesDir 'wifi-once.bat'
+$WifiOnceCn = [string]::Concat(
+    [char]0x5141, [char]0x8BB8, [char]0x624B, [char]0x673A, [char]0x57FA, [char]0x7740, [char]0x7F51, '.bat'
+)
 
 Write-Host '>> npm run build'
 Push-Location $ProjectRoot
@@ -31,6 +35,7 @@ Copy-Item -Path (Join-Path $PSScriptRoot 'serve-dist.ps1') -Destination $Release
 Copy-Item -Path (Join-Path $ResourcesDir 'scan.html') -Destination $ReleaseDir
 Copy-Item -Path (Join-Path $ResourcesDir 'qrcode.min.js') -Destination $ReleaseDir
 Copy-Item -Path (Join-Path $ResourcesDir 'start.bat') -Destination (Join-Path $ReleaseDir $StartBatCn)
+Copy-Item -Path $WifiOnceSrc -Destination (Join-Path $ReleaseDir $WifiOnceCn)
 Copy-Item -Path $ReadmeSrc -Destination (Join-Path $ReleaseDir $ReadmeCn)
 
 if (-not (Test-Path $ReleaseRoot)) {
