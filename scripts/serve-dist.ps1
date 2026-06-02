@@ -1,4 +1,4 @@
-# Local static server for dist + scan QR page (same WiFi). English-only for PS 5.1 encoding.
+# Fallback static server when Python is not installed (single-thread, slower).
 $ErrorActionPreference = 'Stop'
 
 $RootDir = $PSScriptRoot
@@ -9,6 +9,16 @@ if (-not (Test-Path $DistDir)) {
     Write-Host "Missing dist folder: $DistDir" -ForegroundColor Red
     Read-Host 'Press Enter to exit'
     exit 1
+}
+
+function Test-PortListening([int]$PortNum) {
+    try {
+        $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $PortNum)
+        $c.Close()
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 function Get-LanIPv4 {
@@ -40,20 +50,18 @@ function Get-MimeType([string]$Path) {
         '.mp4'  { return 'video/mp4' }
         '.mov'  { return 'video/quicktime' }
         '.webm' { return 'video/webm' }
-        '.woff' { return 'font/woff' }
-        '.woff2'{ return 'font/woff2' }
         default { return 'application/octet-stream' }
     }
 }
 
 function Start-HttpServer {
-    param([int]$Port, [string]$LanIp)
+    param([int]$PortNum, [string]$LanIp)
     $plans = @()
     if ($LanIp) {
-        $plans += ,@("http://+:$Port/", "http://127.0.0.1:$Port/", "http://localhost:$Port/")
-        $plans += ,@("http://${LanIp}:$Port/", "http://127.0.0.1:$Port/", "http://localhost:$Port/")
+        $plans += ,@("http://+:$PortNum/", "http://127.0.0.1:$PortNum/", "http://localhost:$PortNum/")
+        $plans += ,@("http://${LanIp}:$PortNum/", "http://127.0.0.1:$PortNum/", "http://localhost:$PortNum/")
     }
-    $plans += ,@("http://127.0.0.1:$Port/", "http://localhost:$Port/")
+    $plans += ,@("http://127.0.0.1:$PortNum/", "http://localhost:$PortNum/")
 
     foreach ($prefixes in $plans) {
         $listener = New-Object System.Net.HttpListener
@@ -66,7 +74,14 @@ function Start-HttpServer {
             $listener.Close()
         }
     }
-    throw 'Cannot start HttpListener on port ' + $Port
+    throw 'Cannot start HttpListener on port ' + $PortNum
+}
+
+if (Test-PortListening $Port) {
+    Write-Host "Server already running on port $Port" -ForegroundColor Green
+    Start-Process "http://127.0.0.1:$Port/scan.html"
+    Read-Host 'Press Enter to close (server keeps running)'
+    exit 0
 }
 
 $LanIp = Get-LanIPv4
@@ -84,16 +99,18 @@ try {
 $LocalUrl = "http://127.0.0.1:$Port/"
 
 Write-Host ''
-Write-Host 'Huahua Nail - local server running' -ForegroundColor Green
-Write-Host "PC:  $LocalUrl"
-Write-Host "QR:  ${LocalUrl}scan.html"
+Write-Host 'Huahua Nail - server running (keep this window open)' -ForegroundColor Green
+Write-Host "PC:    $LocalUrl"
+Write-Host "QR:    ${LocalUrl}scan.html"
 if ($LanIp -and $started.WifiOk) {
-    Write-Host "Phone (same WiFi): $PhoneUrl"
-} elseif ($LanIp) {
-    Write-Host 'Phone WiFi: not ready. Right-click ALLOW-WIFI-ONCE.bat -> Run as administrator, then start again.' -ForegroundColor Yellow
+    Write-Host "Phone: $PhoneUrl (same WiFi)"
+} else {
+    Write-Host 'Phone: run ALLOW-WIFI-ONCE.bat as Administrator first' -ForegroundColor Yellow
 }
-Write-Host 'Close this window to stop.'
+Write-Host 'No Python detected - phone may load slowly. Install Python 3 for speed.'
 Write-Host ''
+
+Start-Process "${LocalUrl}scan.html"
 
 while ($Listener.IsListening) {
     $Context = $Listener.GetContext()
@@ -113,18 +130,6 @@ while ($Listener.IsListening) {
             continue
         }
 
-        if ($RelPath -eq 'site-url.json') {
-            $MetaFile = Join-Path $DistDir 'site-url.json'
-            if (Test-Path $MetaFile -PathType Leaf) {
-                $Content = [IO.File]::ReadAllBytes($MetaFile)
-                $Response.ContentType = 'application/json; charset=utf-8'
-                $Response.ContentLength64 = $Content.Length
-                $Response.OutputStream.Write($Content, 0, $Content.Length)
-                $Response.Close()
-                continue
-            }
-        }
-
         if ($RelPath -eq 'scan.html' -or $RelPath -eq 'qrcode.min.js') {
             $PkgFile = Join-Path $RootDir ($RelPath -replace '/', [IO.Path]::DirectorySeparatorChar)
             if (Test-Path $PkgFile -PathType Leaf) {
@@ -137,9 +142,7 @@ while ($Listener.IsListening) {
             }
         }
 
-        if ([string]::IsNullOrWhiteSpace($RelPath)) {
-            $RelPath = 'index.html'
-        }
+        if ([string]::IsNullOrWhiteSpace($RelPath)) { $RelPath = 'index.html' }
 
         $FullPath = Join-Path $DistDir ($RelPath -replace '/', [IO.Path]::DirectorySeparatorChar)
         $FullPath = [IO.Path]::GetFullPath($FullPath)

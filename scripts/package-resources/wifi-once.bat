@@ -7,7 +7,8 @@ if '%errorlevel%' NEQ '0' (
     exit /B
 )
 netsh http add urlacl url=http://+:8765/ user=Everyone
+netsh advfirewall firewall add rule name="HuahuaNail8765" dir=in action=allow protocol=TCP localport=8765
 echo.
-echo Done. Phone WiFi scan is enabled.
-echo Now double-click START.bat (启动.bat) again.
+echo Done. Phone WiFi + firewall OK.
+echo Now double-click START.bat (启动.bat) once.
 pause

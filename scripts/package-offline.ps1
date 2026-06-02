@@ -42,6 +42,7 @@ Copy-Item -Path (Join-Path $PSScriptRoot 'serve-dist.ps1') -Destination $Release
 Copy-Item -Path (Join-Path $ResourcesDir 'scan.html') -Destination $ReleaseDir
 Copy-Item -Path (Join-Path $ResourcesDir 'qrcode.min.js') -Destination $ReleaseDir
 Copy-Item -Path (Join-Path $ResourcesDir 'start.bat') -Destination (Join-Path $ReleaseDir $StartBatCn)
+Copy-Item -Path (Join-Path $ResourcesDir 'serve.py') -Destination $ReleaseDir
 Copy-Item -Path $WifiOnceSrc -Destination (Join-Path $ReleaseDir $WifiOnceCn)
 Copy-Item -Path $ReadmeSrc -Destination (Join-Path $ReleaseDir $ReadmeCn)
 
