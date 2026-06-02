@@ -12,16 +12,32 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 const releaseDir = path.join(projectRoot, 'release')
 
-// 探测本机局域网 IPv4，供手机微信扫码（localhost 在手机上无效）
+// 跳过虚拟网卡/热点/链路本地，避免二维码指向手机扫不开的地址
+function isBadInterface(name, address) {
+  const n = String(name || '').toLowerCase()
+  if (n.includes('vmware') || n.includes('virtualbox') || n.includes('vethernet')) return true
+  if (n.includes('hotspot') || n.includes('mobile') || address.startsWith('192.168.137.')) return true
+  if (address.startsWith('169.254.')) return true
+  return false
+}
+
+// 探测本机局域网 IPv4：优先 WLAN/Wi-Fi，供手机微信扫码
 function detectLanOrigin() {
   const ifaces = os.networkInterfaces()
+  const candidates = []
   for (const name of Object.keys(ifaces)) {
     for (const iface of ifaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return `http://${iface.address}:5173`
-      }
+      if (iface.family !== 'IPv4' || iface.internal) continue
+      if (isBadInterface(name, iface.address)) continue
+      candidates.push({ name, address: iface.address })
     }
   }
+  const prefer = (re) => candidates.find((c) => re.test(c.name))
+  const picked =
+    prefer(/wlan|wi-?fi|无线/i) ||
+    prefer(/ethernet|以太网/i) ||
+    candidates[0]
+  if (picked) return `http://${picked.address}:5173`
   return 'http://localhost:5173'
 }
 
@@ -40,6 +56,7 @@ async function main() {
   const outTxt = path.join(releaseDir, '店主管理登录链接.txt')
   await QRCode.toFile(outPng, loginUrl, { width: 320, margin: 2 })
   fs.writeFileSync(outTxt, `${loginUrl}\n`, 'utf8')
+  console.log('>> 使用地址:', origin)
   console.log('>> 店主手机号:', cfg.adminPhone)
   console.log('>> 登录链接:', loginUrl)
   console.log('>> 已生成:', outPng)
