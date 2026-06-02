@@ -26,6 +26,6 @@ npm run online
 
 ## Git 提交
 
-- **是否已提交**：否
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：97ac8b7（nail-beauty / master / 未 push）
+- **提交说明**：feat: 改用 GitHub Pages，npm run online 更简单公网扫码
