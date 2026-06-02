@@ -9,6 +9,7 @@
     "build": "npm run sync-gallery && vite build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fix-dist-html.ps1 && node scripts/inject-site-url.mjs",
     "preview": "vite preview",
     "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-offline.ps1",
+    "out": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-offline.ps1",
     "share": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/share-online.ps1",
     "gen-qr": "node scripts/generate-customer-qr.mjs"
   },

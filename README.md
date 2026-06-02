@@ -1,44 +1,42 @@
 # 花花美甲坊 · 美甲宣传站
 
-基于 **Vue 3 + Vite**，电脑与手机自适应。
+Vue 3 + Vite，电脑与手机自适应。
 
-## 顾客扫码即看（个人 Gitee）
-
-与公司 Git 分开，用个人 Gitee 网页上传 `dist` 即可：
+## 最简单 · 店里有 WiFi 就能看（推荐）
 
 ```bash
-npm run build          # 生成 dist
-# → Gitee 网页上传 dist 内全部文件 → 开启 Pages
-npm run gen-qr         # 生成 release/顾客扫码.png
+npm run out
 ```
 
-**注意：** 个人 Gitee 免费 Pages 已停服，请改用下方「发给顾客」方式。
+生成 **`release/花花美甲坊/`**：
 
-## 发给顾客 · 点开即看（最简单）
+| 内容 | 作用 |
+|------|------|
+| `dist/` | 网站（含全部视频） |
+| `启动.bat` | **双击即可** |
+| `serve-dist.ps1` | 本地小服务（不用管） |
+| `scan.html` + `qrcode.min.js` | 扫码页（不用管） |
+| `说明.txt` | 三行说明 |
 
-```bash
-npm run share          # 自动打开 dist 文件夹 + Netlify 上传页
-# → 把 dist 拖进网页 → 复制网址 → 填 deploy.config.json → npm run gen-qr
-# → 微信发链接或 release/顾客扫码二维码.png
-```
+**用法：** 把整个文件夹拷到店里电脑 → 双击 **启动.bat** → 顾客连同一 WiFi 扫屏幕二维码。
 
-详见 [scripts/share-online.ps1](scripts/share-online.ps1)
+同目录还有 **`花花美甲坊.zip`**，可微信发给另一台电脑解压使用。
 
 ## 开发
 
 ```bash
-cd nail-beauty
 npm install
 npm run dev
 npm run build
 ```
 
-## 店内临时展示
-
-`npm run package` → **打开网站.bat**，顾客同 WiFi 扫屏幕码。
-
-## 自定义内容
+## 自定义
 
 - 文案：`src/data/siteContent.js`
-- 作品：`public/` + `npm run sync-gallery`
-- 仅看款式：`src/data/galleryAlbums.overrides.js`
+- 作品图/视频：`public/` 后执行 `npm run build` 或 `npm run out`
+- 仅看部分款式：`src/data/galleryAlbums.overrides.js`
+
+## 其他（可选）
+
+- `npm run gen-qr`：有公网地址时生成顾客扫码图（需先填 `deploy.config.json`）
+- `npm run share`：打包 zip 上传 Netlify 等（较麻烦，一般不必）
