@@ -32,6 +32,26 @@ export const galleryAlbums = [
     ],
   },
   {
+    id: 'caihui-c3',
+    title: '手绘彩绘 3',
+    category: '彩绘',
+    cover: './caihui/c3.jpg',
+    hasVideo: false,
+    media: [
+      { type: 'image', src: './caihui/c3.jpg' },
+    ],
+  },
+  {
+    id: 'caihui-c4',
+    title: '手绘彩绘 4',
+    category: '彩绘',
+    cover: './caihui/c4.jpg',
+    hasVideo: false,
+    media: [
+      { type: 'image', src: './caihui/c4.jpg' },
+    ],
+  },
+  {
     id: 'fashi-f1',
     title: '法式经典',
     category: '法式',
