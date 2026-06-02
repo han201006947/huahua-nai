@@ -11,7 +11,7 @@ const customJsonPath = path.join(projectRoot, 'src', 'data', 'galleryCategories.
 
 // 内置分类（与 public 下原有文件夹对应）
 export const BUILTIN_GALLERY_CATEGORIES = [
-  { dir: 'caihui', key: 'caihui', category: '彩绘', titlePrefix: '手绘彩绘', folderPrefix: 'c' },
+  { dir: 'caihui', key: 'caihui', category: '彩绘', titlePrefix: '贴纸彩绘', folderPrefix: 'c' },
   { dir: 'fashi', key: 'fashi', category: '法式', titlePrefix: '法式款式', folderPrefix: 'f' },
   { dir: 'jianbian', key: 'jianbian', category: '渐变款', titlePrefix: '渐变美甲', folderPrefix: 'j' },
   { dir: 'maoyan', key: 'maoyan', category: '猫眼', titlePrefix: '猫眼星辰', folderPrefix: 'm' },

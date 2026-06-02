@@ -10,7 +10,7 @@ export const STYLE_PREVIEW_LABEL = {
 export const galleryAlbums = [
   {
     id: 'caihui-c1',
-    title: '手绘彩绘 1',
+    title: '贴纸彩绘 1',
     category: '彩绘',
     cover: './caihui/c1/c11.jpg',
     hasVideo: true,
@@ -23,7 +23,7 @@ export const galleryAlbums = [
   },
   {
     id: 'caihui-c2',
-    title: '手绘彩绘 2',
+    title: '贴纸彩绘 2',
     category: '彩绘',
     cover: './caihui/c2.jpg',
     hasVideo: false,
@@ -33,7 +33,7 @@ export const galleryAlbums = [
   },
   {
     id: 'caihui-c3',
-    title: '手绘彩绘 3',
+    title: '贴纸彩绘 3',
     category: '彩绘',
     cover: './caihui/c3.jpg',
     hasVideo: false,
@@ -43,7 +43,7 @@ export const galleryAlbums = [
   },
   {
     id: 'caihui-c4',
-    title: '手绘彩绘 4',
+    title: '贴纸彩绘 4',
     category: '彩绘',
     cover: './caihui/c4.jpg',
     hasVideo: false,
