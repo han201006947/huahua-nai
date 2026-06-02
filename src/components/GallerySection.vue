@@ -11,7 +11,7 @@ import { requestDeleteAlbum } from '../composables/useGalleryAdminApi.js'
 import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
-const { albums, reloadAlbums, isDev } = useGalleryAlbums()
+const { albums, categoryOptions, reloadAlbums, reloadCategories, isDev } = useGalleryAlbums()
 
 // 开发环境才加载本地管理面板（不会打进生产包）
 const GalleryAdminPanel = isDev
@@ -85,9 +85,11 @@ function isCoverLandscapeVideo(album) {
   return isLandscape(`cover-${album.id}`)
 }
 
-// 提取所有不重复的分类标签
+// 提取所有不重复的分类标签（含尚无款式的空分类）
 const categories = computed(() => {
-  const set = new Set(albums.value.map((item) => item.category))
+  const set = new Set()
+  for (const c of categoryOptions.value) set.add(c.category)
+  for (const item of albums.value) set.add(item.category)
   return ['全部', ...set]
 })
 
@@ -224,6 +226,9 @@ function onKeydown(event) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  if (isDev) {
+    reloadCategories().catch(() => {})
+  }
   // dev 删款 reload 后滚回作品集区域
   if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
     sessionStorage.removeItem('gallery-scroll-restore')
@@ -238,13 +243,13 @@ watch(filteredAlbums, () => {
   nextTick(() => bindGalleryObserver())
 })
 
-// 本地管理增删后刷新列表、重置网格与懒加载
+// 本地管理增删后刷新列表、分类 Tab 与懒加载
 async function onGalleryAdminChanged() {
   if (activeAlbum.value) closeAlbum()
   if (lightboxSrc.value) closeLightbox()
   landscapeKeys.value = new Set()
   coverFailedIds.value = new Set()
-  await reloadAlbums()
+  await Promise.all([reloadAlbums(), reloadCategories()])
   galleryListKey.value += 1
   await nextTick()
   bindGalleryObserver()

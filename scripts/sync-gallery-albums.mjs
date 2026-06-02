@@ -11,10 +11,10 @@ const publicRoot = path.join(projectRoot, 'public')
 const outFile = path.join(projectRoot, 'src', 'data', 'galleryAlbums.js')
 const overridesFile = path.join(projectRoot, 'src', 'data', 'galleryAlbums.overrides.js')
 
-import { GALLERY_CATEGORIES } from './gallery-categories.mjs'
+import { getAllCategories } from './gallery-categories.mjs'
 
-// 分类文件夹 → 网站显示名与标题前缀（与 gallery-categories.mjs 共用）
-const CATEGORIES = GALLERY_CATEGORIES
+// 分类文件夹 → 网站显示名与标题前缀（内置 + custom.json）
+const CATEGORIES = getAllCategories()
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
 const VIDEO_EXT = new Set(['.mp4', '.webm', '.mov'])

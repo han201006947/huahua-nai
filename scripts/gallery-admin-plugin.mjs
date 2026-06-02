@@ -3,6 +3,7 @@
  */
 import {
   addAlbum,
+  addCategory,
   deleteAlbum,
   listAlbums,
   listCategories,
@@ -23,6 +24,13 @@ export function galleryAdminPlugin() {
         try {
           if (req.method === 'GET' && url === '/api/gallery/categories') {
             sendJson(res, 200, { categories: listCategories() })
+            return
+          }
+
+          if (req.method === 'POST' && url === '/api/gallery/categories') {
+            const body = await readJsonBody(req)
+            const result = await addCategory(body)
+            sendJson(res, 200, result)
             return
           }
 

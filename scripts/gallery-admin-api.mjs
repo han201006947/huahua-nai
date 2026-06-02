@@ -5,7 +5,12 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { spawnSync } from 'child_process'
-import { GALLERY_CATEGORIES, findCategoryByKey } from './gallery-categories.mjs'
+import {
+  findCategoryByKey,
+  getAllCategories,
+  loadCustomCategories,
+  saveCustomCategories,
+} from './gallery-categories.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
@@ -69,14 +74,55 @@ async function loadAlbumsFromGenerated() {
   return mod.galleryAlbums
 }
 
-// 返回分类下拉选项
+// 返回全部分类（内置 + 自定义）
 export function listCategories() {
-  return GALLERY_CATEGORIES.map((c) => ({
+  return getAllCategories().map((c) => ({
     key: c.key,
     dir: c.dir,
     category: c.category,
     titlePrefix: c.titlePrefix,
   }))
+}
+
+// 生成未占用的 public 子目录名 cat1、cat2…
+function nextCategoryDir() {
+  const all = getAllCategories()
+  const used = new Set(all.map((c) => c.dir))
+  let n = 1
+  while (used.has(`cat${n}`)) n += 1
+  return `cat${n}`
+}
+
+// 从目录名取款式子文件夹前缀（cat3 → c，tiepian → t）
+function defaultFolderPrefix(dir) {
+  const m = dir.match(/[a-z]/i)
+  return m ? m[0].toLowerCase() : 'x'
+}
+
+// 新增作品集分类：写入 custom.json 并创建 public 空目录
+export async function addCategory(payload) {
+  const category = String(payload?.category || '').trim()
+  const titlePrefix = String(payload?.titlePrefix || '').trim() || category
+  if (!category) throw new Error('请填写分类名称')
+
+  const all = getAllCategories()
+  if (all.some((c) => c.category === category)) {
+    throw new Error(`分类「${category}」已存在`)
+  }
+
+  const dir = nextCategoryDir()
+  const key = dir
+  const folderPrefix = defaultFolderPrefix(dir)
+  const entry = { dir, key, category, titlePrefix, folderPrefix }
+
+  const custom = loadCustomCategories()
+  custom.push(entry)
+  saveCustomCategories(custom)
+
+  const catDir = path.join(publicRoot, dir)
+  fs.mkdirSync(catDir, { recursive: true })
+
+  return { category: entry, categories: listCategories() }
 }
 
 // 列出当前全部相册

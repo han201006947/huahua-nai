@@ -7,11 +7,26 @@ import { galleryAlbums as staticAlbums } from '../data/galleryAlbums.js'
 // 响应式相册列表（开发增删后替换）
 const albumsRef = shallowRef(staticAlbums)
 
+// 响应式分类配置（含尚无款式的空分类）
+const categoryOptionsRef = shallowRef([])
+
 // 是否开发环境（Vite 注入，生产 build 为 false）
 const isDev = import.meta.env.DEV
 
 // 读取相册列表
 export function useGalleryAlbums() {
+  // 从本地 API 拉取分类列表（仅 dev）
+  async function reloadCategories() {
+    if (!isDev) return
+    const res = await fetch('/api/gallery/categories')
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || '加载分类失败')
+    }
+    const data = await res.json()
+    categoryOptionsRef.value = [...(data.categories || [])]
+  }
+
   // 从本地 API 拉取最新列表（仅 dev 有效）
   async function reloadAlbums() {
     if (!isDev) return
@@ -21,9 +36,14 @@ export function useGalleryAlbums() {
       throw new Error(err.error || '加载作品集失败')
     }
     const data = await res.json()
-    // 新数组引用，确保网格重新渲染
     albumsRef.value = [...(data.albums || [])]
   }
 
-  return { albums: albumsRef, reloadAlbums, isDev }
+  return {
+    albums: albumsRef,
+    categoryOptions: categoryOptionsRef,
+    reloadAlbums,
+    reloadCategories,
+    isDev,
+  }
 }
