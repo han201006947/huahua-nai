@@ -29,6 +29,6 @@ npm run share
 
 ## Git 提交
 
-- **是否已提交**：待 commit 后回填
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：56ea2db（master，未 push）
+- **提交说明**：feat: 新增 npm run share 引导 Netlify 发给顾客
