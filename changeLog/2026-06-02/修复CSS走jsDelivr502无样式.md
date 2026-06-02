@@ -29,6 +29,6 @@ JS 有时能 200，Vue 能挂载，但 CSS 加载失败 → 无样式。
 
 ## Git
 
-- **是否已提交**：否（待 commit）
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：63b2a07（nail-beauty / master / 未 push）
+- **提交说明**：fix: CSS/JS 改回 GitHub Pages 修复 jsDelivr 502 无样式
