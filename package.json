@@ -13,6 +13,7 @@
     "online": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/online-github.ps1",
     "share": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/online-github.ps1",
     "deploy": "npm run build && node scripts/deploy-github-pages.mjs",
+    "public": "node scripts/public-tunnel.mjs",
     "gen-qr": "node scripts/generate-customer-qr.mjs"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.6",
     "gh-pages": "^6.3.0",
+    "localtunnel": "^2.0.2",
     "qrcode": "^1.5.4",
     "vite": "^8.0.12"
   }

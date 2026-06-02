@@ -11,15 +11,18 @@
    - 不要勾选 Add a README
    - 点 Create repository
 
-3. 在新仓库页点 「uploading an existing file」或 Add file → Upload files
-   - 把 dist 文件夹里的【全部文件】拖进去
-     （index.html、assets、maoyan、caihui 等，不是拖 dist 文件夹本身）
-   - 点 Commit changes
+3. 网页上传 dist 内全部文件（单文件不能超过 25MB，大视频会报错）
+   → 若报错 Yowza 25MB：不要网页传了，改用下面「命令行一键上传」
 
-4. 仓库上面点 Settings → 左侧 Pages
-   - Source 选 Deploy from a branch
-   - Branch 选 main，文件夹选 / (root)
-   - 点 Save
+【命令行一键上传 · 含全部视频 · 推荐】
+
+3b. 在项目文件夹打开终端，执行：npm run deploy
+   - 提示登录时：用户名 = han201006947
+   - 密码 = GitHub Personal Access Token（不是登录密码）
+   - 创建 Token：GitHub → Settings → Developer settings → Personal access tokens
+     → Generate new token (classic) → 勾选 repo → 生成后复制
+
+4. 仓库 Settings → Pages → Branch 选 gh-pages（不是 main）→ / (root) → Save
 
 5. 等 1～3 分钟，Pages 里会出现网址，形如：
    https://你的用户名.github.io/huahua-nail/

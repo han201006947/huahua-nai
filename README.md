@@ -2,7 +2,19 @@
 
 Vue 3 + Vite，电脑与手机自适应。
 
-## 网上扫码 · 任何人都能看（推荐 GitHub Pages）
+## 全国扫码 · 现在就能用（推荐）
+
+```bash
+npm run public
+```
+
+- **免费、不限文件大小**（含全部视频）
+- 自动生成公网链接 + **`release/顾客扫码二维码.png`**
+- 全国顾客可扫，**不用同一 WiFi**
+- ⚠️ **保持命令行窗口不要关**（关了链接失效）
+- ⚠️ 每次运行链接会变；要**固定链接**等 GitHub 通时用 `npm run deploy`
+
+## 网上扫码 · 固定长期链接（GitHub Pages）
 
 ```bash
 npm run online
