@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>扫码浏览 · 花花美甲坊</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: linear-gradient(160deg, #faf6f2 0%, #f0e6dc 100%);
+        color: #3d2c2e;
+      }
+      .card {
+        width: min(480px, 100%);
+        background: #fff;
+        border-radius: 20px;
+        padding: 36px 28px;
+        text-align: center;
+        box-shadow: 0 12px 40px rgba(61, 44, 46, 0.1);
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 8px;
+        letter-spacing: 0.06em;
+      }
+      .desc {
+        font-size: 0.95rem;
+        color: #8a7074;
+        line-height: 1.6;
+        margin: 0 0 28px;
+      }
+      #qr-wrap {
+        display: inline-block;
+        padding: 16px;
+        background: #faf6f2;
+        border: 1.5px solid rgba(201, 168, 124, 0.35);
+        border-radius: 12px;
+        margin-bottom: 16px;
+      }
+      #qr-wrap canvas,
+      #qr-wrap img {
+        display: block;
+      }
+      .url {
+        font-size: 0.85rem;
+        color: #c9a87c;
+        word-break: break-all;
+        margin: 0;
+      }
+      .tip {
+        margin-top: 18px;
+        font-size: 0.82rem;
+        color: #8a7074;
+        line-height: 1.5;
+      }
+      .tip.hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>花花美甲坊</h1>
+      <p class="desc">微信或浏览器扫一扫<br /><strong>无需下载、无需安装</strong>，直接看作品与预约</p>
+      <div id="qr-wrap"></div>
+      <p class="url" id="site-url">正在加载…</p>
+      <p class="tip" id="wifi-tip">请确保手机与展示用电脑连接<strong>同一 WiFi</strong>（店内模式）。</p>
+    </div>
+    <script src="./qrcode.min.js"></script>
+    <script>
+      // 渲染二维码
+      function showQr(url, isOnline) {
+        document.getElementById('site-url').textContent = url
+        document.getElementById('qr-wrap').innerHTML = ''
+        new QRCode(document.getElementById('qr-wrap'), {
+          text: url,
+          width: isOnline ? 280 : 260,
+          height: isOnline ? 280 : 260,
+          colorDark: '#3d2c2e',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M,
+        })
+        if (isOnline) {
+          document.getElementById('wifi-tip').classList.add('hidden')
+        }
+      }
+
+      // 店内 WiFi：优先局域网地址（本地 serve-dist 提供 lan.json）
+      fetch('./lan.json')
+        .then(function (res) {
+          if (!res.ok) throw new Error('no lan')
+          return res.json()
+        })
+        .then(function (data) {
+          if (data.url) {
+            showQr(data.url, false)
+            return
+          }
+          throw new Error('empty lan')
+        })
+        .catch(function () {
+          // 回退：线上永久地址（Netlify 等部署后 dist/site-url.json）
+          fetch('./site-url.json')
+            .then(function (res) {
+              if (!res.ok) throw new Error('no site-url')
+              return res.json()
+            })
+            .then(function (data) {
+              if (data.publicUrl) {
+                showQr(data.publicUrl, true)
+                return
+              }
+              throw new Error('empty url')
+            })
+            .catch(function () {
+              document.getElementById('site-url').textContent =
+                '请先双击「启动.bat」；若仍无效请看说明.txt'
+            })
+        })
+    </script>
+  </body>
+</html>

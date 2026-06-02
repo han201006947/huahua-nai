@@ -31,6 +31,13 @@ New-Item -ItemType Directory -Path $ReleaseDir -Force | Out-Null
 
 Write-Host '>> copy dist + launcher'
 Copy-Item -Path (Join-Path $ProjectRoot 'dist') -Destination (Join-Path $ReleaseDir 'dist') -Recurse
+
+# 离线包不用失效的 Gitee 线上地址，避免扫码跳到 404
+$OfflineSiteUrl = Join-Path $ReleaseDir 'dist\site-url.json'
+if (Test-Path $OfflineSiteUrl) {
+    Remove-Item -LiteralPath $OfflineSiteUrl -Force
+}
+
 Copy-Item -Path (Join-Path $PSScriptRoot 'serve-dist.ps1') -Destination $ReleaseDir
 Copy-Item -Path (Join-Path $ResourcesDir 'scan.html') -Destination $ReleaseDir
 Copy-Item -Path (Join-Path $ResourcesDir 'qrcode.min.js') -Destination $ReleaseDir
