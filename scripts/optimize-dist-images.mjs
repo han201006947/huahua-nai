@@ -1,5 +1,5 @@
 /**
- * 构建后压缩 dist 内大图：手机网页无需 10MB+ 原图，显著加快首屏与作品集加载
+ * 构建后压缩 dist 内大图，并生成作品集网格用 .thumb 缩略图（约 400px）
  */
 import fs from 'fs'
 import path from 'path'
@@ -11,12 +11,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 // Vite 输出目录
 const distRoot = path.join(projectRoot, 'dist')
-// 小于该体积（字节）的图跳过，避免反复压小图
-const SKIP_BELOW_BYTES = 280 * 1024
-// 价目一览主图文件名
+// 小于该体积（字节）的图仍生成 thumb，但跳过主图压缩
+const SKIP_MAIN_BELOW_BYTES = 200 * 1024
+// 价目一览主图
 const HERO_FILE = 'hb.jpg'
+// 缩略图后缀：c11.jpg → c11.thumb.jpg
+const THUMB_SUFFIX = '.thumb'
 
-// 收集目录下所有待处理图片路径
+// 递归收集 dist 内所有图片
 function collectImages(dir, list = []) {
   if (!fs.existsSync(dir)) return list
   for (const name of fs.readdirSync(dir)) {
@@ -28,57 +30,87 @@ function collectImages(dir, list = []) {
     }
     const ext = path.extname(name).toLowerCase()
     if (!['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) continue
+    if (name.includes(THUMB_SUFFIX)) continue
     list.push(full)
   }
   return list
 }
 
-// 按用途返回最大宽度与 JPEG 质量
-function getProfile(filePath) {
+// 主图压缩参数：价目图略大，作品详情图中等
+function getMainProfile(filePath) {
   const base = path.basename(filePath).toLowerCase()
   if (base === HERO_FILE) {
-    return { maxWidth: 1200, quality: 82, label: '价目主图' }
+    return { maxWidth: 900, quality: 80, label: '价目主图' }
   }
-  return { maxWidth: 960, quality: 78, label: '作品/页面图' }
+  return { maxWidth: 720, quality: 76, label: '作品图' }
 }
 
-// 压缩单张：先写出临时文件，再删原图并替换（兼容 Windows 锁文件）
-async function optimizeOne(filePath) {
-  const before = fs.statSync(filePath).size
-  if (before < SKIP_BELOW_BYTES) return null
+// 缩略图路径
+function thumbPath(filePath) {
+  const ext = path.extname(filePath)
+  const stem = filePath.slice(0, -ext.length)
+  return `${stem}${THUMB_SUFFIX}${ext}`
+}
 
-  const { maxWidth, quality, label } = getProfile(filePath)
-  const ext = path.extname(filePath).toLowerCase()
+// 写出临时文件后替换目标（Windows 兼容）
+async function replaceFile(filePath, writeFn) {
   const tempPath = path.join(
     path.dirname(filePath),
     `._opt_${Date.now()}_${path.basename(filePath)}`
   )
-
-  // 先读入内存再处理，避免 Windows 下 sharp 占用原文件导致无法替换
-  const inputBuf = fs.readFileSync(filePath)
-  let pipeline = sharp(inputBuf).rotate()
-  const meta = await pipeline.metadata()
-  if ((meta.width || 0) > maxWidth) {
-    pipeline = pipeline.resize({ width: maxWidth, withoutEnlargement: true })
-  }
-
-  if (ext === '.png') {
-    await pipeline.png({ compressionLevel: 9 }).toFile(tempPath)
-  } else if (ext === '.webp') {
-    await pipeline.webp({ quality: 82 }).toFile(tempPath)
-  } else {
-    await pipeline.jpeg({ quality, mozjpeg: true }).toFile(tempPath)
-  }
-
-  const after = fs.statSync(tempPath).size
-  if (after >= before) {
-    fs.rmSync(tempPath, { force: true })
-    return null
-  }
+  await writeFn(tempPath)
   fs.rmSync(filePath, { force: true })
   fs.renameSync(tempPath, filePath)
-  const rel = path.relative(distRoot, filePath)
-  return { rel, before, after, label }
+}
+
+// 压缩主图
+async function optimizeMain(filePath) {
+  const before = fs.statSync(filePath).size
+  if (before < SKIP_MAIN_BELOW_BYTES) return null
+
+  const { maxWidth, quality, label } = getMainProfile(filePath)
+  const ext = path.extname(filePath).toLowerCase()
+  const inputBuf = fs.readFileSync(filePath)
+
+  await replaceFile(filePath, async (tempPath) => {
+    let pipeline = sharp(inputBuf).rotate()
+    const meta = await pipeline.metadata()
+    if ((meta.width || 0) > maxWidth) {
+      pipeline = pipeline.resize({ width: maxWidth, withoutEnlargement: true })
+    }
+    if (ext === '.png') {
+      await pipeline.png({ compressionLevel: 9 }).toFile(tempPath)
+    } else if (ext === '.webp') {
+      await pipeline.webp({ quality: 80 }).toFile(tempPath)
+    } else {
+      await pipeline.jpeg({ quality, mozjpeg: true }).toFile(tempPath)
+    }
+  })
+
+  const after = fs.statSync(filePath).size
+  if (after >= before) return null
+  return { rel: path.relative(distRoot, filePath), before, after, label }
+}
+
+// 生成网格封面用缩略图（仅 JPEG/PNG）
+async function writeThumb(filePath) {
+  const ext = path.extname(filePath).toLowerCase()
+  if (!['.jpg', '.jpeg', '.png'].includes(ext)) return null
+  if (path.basename(filePath).toLowerCase() === HERO_FILE) return null
+
+  const out = thumbPath(filePath)
+  const inputBuf = fs.readFileSync(filePath)
+  const tempPath = `${out}.tmp`
+
+  await sharp(inputBuf)
+    .rotate()
+    .resize({ width: 420, withoutEnlargement: true })
+    .jpeg({ quality: 72, mozjpeg: true })
+    .toFile(tempPath)
+
+  fs.rmSync(out, { force: true })
+  fs.renameSync(tempPath, out)
+  return path.relative(distRoot, out)
 }
 
 async function main() {
@@ -88,24 +120,32 @@ async function main() {
   }
 
   const files = collectImages(distRoot)
-  let done = 0
+  let mainDone = 0
+  let thumbDone = 0
   let saved = 0
 
   for (const file of files) {
     try {
-      const r = await optimizeOne(file)
-      if (!r) continue
-      done += 1
-      saved += r.before - r.after
-      console.log(
-        `>> [${r.label}] ${r.rel}: ${(r.before / 1024 / 1024).toFixed(2)}MB → ${(r.after / 1024 / 1024).toFixed(2)}MB`
-      )
+      const r = await optimizeMain(file)
+      if (r) {
+        mainDone += 1
+        saved += r.before - r.after
+        console.log(
+          `>> [${r.label}] ${r.rel}: ${(r.before / 1024 / 1024).toFixed(2)}MB → ${(r.after / 1024 / 1024).toFixed(2)}MB`
+        )
+      }
+      const thumbRel = await writeThumb(file)
+      if (thumbRel) {
+        thumbDone += 1
+        const kb = (fs.statSync(path.join(distRoot, thumbRel)).size / 1024).toFixed(0)
+        console.log(`>> [缩略图] ${thumbRel} (${kb}KB)`)
+      }
     } catch (err) {
       console.warn(`>> 跳过 ${path.relative(distRoot, file)}: ${err.message}`)
     }
   }
 
-  console.log(`>> 图片压缩完成：${done} 张，共节省 ${(saved / 1024 / 1024).toFixed(2)}MB`)
+  console.log(`>> 主图压缩 ${mainDone} 张，缩略图 ${thumbDone} 张，共节省 ${(saved / 1024 / 1024).toFixed(2)}MB`)
 }
 
 main().catch((err) => {

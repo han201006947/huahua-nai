@@ -4,7 +4,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 // 引入按文件夹组织的相册数据与穿戴甲贴手示意文案
 import { galleryAlbums, STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
-import { assetUrl } from '../utils/assetUrl.js'
+import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
 
 // 当前筛选分类，空字符串表示全部
 const activeCategory = ref('')
@@ -72,6 +72,11 @@ const filteredAlbums = computed(() => {
   }
   return galleryAlbums.filter((item) => item.category === activeCategory.value)
 })
+
+// 网格封面是否为纯视频（不在列表里预加载 mp4，点开详情再看）
+function gridCoverIsVideo(album) {
+  return /\.(mp4|webm|mov)$/i.test(album.cover || '')
+}
 
 // 切换分类筛选
 function setCategory(cat) {
@@ -185,20 +190,18 @@ onUnmounted(() => {
               'is-landscape-video': isCoverLandscapeVideo(album),
             }"
           >
-            <!-- 纯视频相册：封面仅展示首帧，preload=none 避免网格里预拉整段 mp4 -->
-            <video
-              v-if="album.coverVideo || album.videoOnly"
-              class="gallery-media"
-              :src="assetUrl(album.coverVideo || album.cover)"
-              muted
-              playsinline
-              preload="none"
-              @loadedmetadata="markLandscapeIfNeeded($event, 'cover-' + album.id)"
-            />
+            <!-- 纯视频封面：网格只显示占位，避免下载几十 MB 的 mp4 -->
+            <div
+              v-if="gridCoverIsVideo(album)"
+              class="gallery-media gallery-video-placeholder"
+              aria-hidden="true"
+            >
+              <span class="gallery-video-ph-icon">▶</span>
+            </div>
             <img
               v-else
               class="gallery-media"
-              :src="assetUrl(album.cover)"
+              :src="assetUrl(coverThumbUrl(album.cover))"
               :alt="album.title"
               loading="lazy"
               decoding="async"
@@ -374,6 +377,22 @@ onUnmounted(() => {
   height: 100%;
   object-fit: cover;
   transition: transform 0.4s ease;
+}
+
+/* 纯视频相册网格占位：不请求 mp4，仅显示播放图标 */
+.gallery-video-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #f5ebe0 0%, #e8d5c4 100%);
+}
+
+.gallery-video-ph-icon {
+  font-size: 2.5rem;
+  color: rgba(120, 80, 50, 0.55);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* 视频封面与图片同等裁切展示 */
