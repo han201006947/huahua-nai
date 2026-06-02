@@ -29,6 +29,6 @@
 
 ## Git 提交
 
-- **是否已提交**：否（待 commit 后回填）
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：b87bac9（master，未 push）
+- **提交说明**：fix: GitHub Pages 子目录下静态资源 404
