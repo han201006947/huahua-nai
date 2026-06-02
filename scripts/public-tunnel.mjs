@@ -44,9 +44,18 @@ function ensureDist() {
 
 // 准备 public-live 目录（dist + serve.py + 扫码页）
 function prepareLiveDir() {
-  if (fs.existsSync(liveDir)) fs.rmSync(liveDir, { recursive: true, force: true })
-  fs.mkdirSync(liveDir, { recursive: true })
-  fs.cpSync(distDir, path.join(liveDir, 'dist'), { recursive: true })
+  if (fs.existsSync(liveDir)) {
+    try {
+      fs.rmSync(liveDir, { recursive: true, force: true })
+    } catch {
+      // 上次 Python 仍占用目录时，直接覆盖 dist 即可
+      console.log('>> reuse public-live (folder in use)')
+    }
+  }
+  if (!fs.existsSync(liveDir)) fs.mkdirSync(liveDir, { recursive: true })
+  const liveDist = path.join(liveDir, 'dist')
+  if (fs.existsSync(liveDist)) fs.rmSync(liveDist, { recursive: true, force: true })
+  fs.cpSync(distDir, liveDist, { recursive: true })
   for (const name of ['serve.py', 'scan.html', 'qrcode.min.js']) {
     fs.copyFileSync(path.join(resourcesDir, name), path.join(liveDir, name))
   }
