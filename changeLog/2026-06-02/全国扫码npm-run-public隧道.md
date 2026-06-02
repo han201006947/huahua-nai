@@ -26,9 +26,9 @@ npm run public
 
 ## Git 提交
 
-- **是否已提交**：否
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：c44ae9d（nail-beauty / master / 未 push）
+- **提交说明**：feat: npm run public 全国扫码隧道，免费不限体积立即可用
 
 ## 验证结果
 
