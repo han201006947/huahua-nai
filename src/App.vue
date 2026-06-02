@@ -11,13 +11,24 @@ import AppFooter from './components/AppFooter.vue'
 const GallerySection = defineAsyncComponent(() => import('./components/GallerySection.vue'))
 const AboutSection = defineAsyncComponent(() => import('./components/AboutSection.vue'))
 
-const showHeavySections = ref(false)
+// 扫码登录或直达 #gallery 时立刻挂载作品集，避免 hash 锚点找不到节点
+function shouldMountGalleryImmediately() {
+  // 微信扫码链接带 #gallery，若懒加载会导致锚点无效、看起来像「无内容」
+  if (typeof window === 'undefined') return false
+  if (window.location.hash.includes('gallery')) return true
+  return new URLSearchParams(window.location.search).has('adminLogin')
+}
+
+// 作品集/关于我们是否已挂载（默认延迟，扫码场景立即 true）
+const showHeavySections = ref(shouldMountGalleryImmediately())
 let belowFoldObserver = null
 
 onMounted(() => {
   const mountHeavy = () => {
     showHeavySections.value = true
   }
+  // 已因扫码/锚点提前挂载则不再延迟
+  if (showHeavySections.value) return
   if (typeof requestIdleCallback === 'function') {
     requestIdleCallback(mountHeavy, { timeout: 400 })
   } else {

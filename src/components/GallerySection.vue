@@ -254,6 +254,12 @@ onMounted(async () => {
     await initAdminAuth()
     if (isAdminLoggedIn.value) adminPanelOpen.value = true
     reloadCategories().catch(() => {})
+    // 店主扫码带 #gallery 时滚到作品集，避免只看到首屏以为无内容
+    if (window.location.hash.includes('gallery')) {
+      nextTick(() => {
+        document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
   }
   // dev 删款 reload 后滚回作品集区域
   if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
@@ -269,13 +275,25 @@ watch(filteredAlbums, () => {
   nextTick(() => bindGalleryObserver())
 })
 
+// 分类 Tab 变化后校正筛选（删分类时避免网格被空筛选卡住）
+function syncActiveCategoryFilter() {
+  const names = categories.value
+  if (!activeCategory.value || activeCategory.value === '全部') return
+  if (!names.includes(activeCategory.value)) activeCategory.value = ''
+}
+
 // 本地管理增删后刷新列表、分类 Tab 与懒加载
 async function onGalleryAdminChanged() {
   if (activeAlbum.value) closeAlbum()
   if (lightboxSrc.value) closeLightbox()
   landscapeKeys.value = new Set()
   coverFailedIds.value = new Set()
-  await Promise.all([reloadAlbums(), reloadCategories()])
+  try {
+    await Promise.all([reloadAlbums(), reloadCategories()])
+  } catch (e) {
+    window.alert(e.message || String(e))
+  }
+  syncActiveCategoryFilter()
   galleryListKey.value += 1
   await nextTick()
   bindGalleryObserver()

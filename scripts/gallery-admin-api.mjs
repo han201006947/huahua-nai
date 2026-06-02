@@ -6,6 +6,7 @@ import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { spawnSync } from 'child_process'
 import {
+  BUILTIN_GALLERY_CATEGORIES,
   findCategoryByKey,
   getAllCategories,
   loadCustomCategories,
@@ -76,11 +77,13 @@ async function loadAlbumsFromGenerated() {
 
 // 返回全部分类（内置 + 自定义）
 export function listCategories() {
+  const customKeys = new Set(loadCustomCategories().map((c) => c.key))
   return getAllCategories().map((c) => ({
     key: c.key,
     dir: c.dir,
     category: c.category,
     titlePrefix: c.titlePrefix,
+    isCustom: customKeys.has(c.key),
   }))
 }
 
@@ -242,6 +245,31 @@ function rmDirRecursive(dir) {
     else fs.rmSync(full, { force: true })
   }
   fs.rmdirSync(dir)
+}
+
+// 删除自建分类：移除 custom.json 条目、删 public 目录并 sync 作品集
+export async function deleteCategory(categoryKey) {
+  const key = String(categoryKey || '').trim()
+  if (!key) throw new Error('缺少分类 key')
+
+  const isBuiltin = BUILTIN_GALLERY_CATEGORIES.some((c) => c.key === key)
+  if (isBuiltin) throw new Error('内置分类不可删除')
+
+  const cat = findCategoryByKey(key)
+  if (!cat) throw new Error('分类不存在')
+
+  const custom = loadCustomCategories()
+  const idx = custom.findIndex((c) => c.key === key)
+  if (idx < 0) throw new Error('仅可删除通过「添加分类」创建的自建分类')
+
+  const catDir = path.join(publicRoot, cat.dir)
+  if (fs.existsSync(catDir)) rmDirRecursive(catDir)
+
+  custom.splice(idx, 1)
+  saveCustomCategories(custom)
+
+  const albums = await runSyncAndLoad()
+  return { categoryKey: key, categories: listCategories(), albums }
 }
 
 // 根据相册 id 定位 public 内文件或文件夹并删除

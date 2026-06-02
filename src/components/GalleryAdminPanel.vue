@@ -1,6 +1,6 @@
 <script setup>
 // 引入 Vue 响应式 API
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 // 带店主 session 的请求
 import { adminFetch, logoutAdmin } from '../composables/useAdminAuth.js'
 
@@ -29,6 +29,9 @@ const busy = ref(false)
 const message = ref('')
 // 错误提示
 const error = ref('')
+
+// 可删除的自建分类（内置彩绘/法式等不可删）
+const customCategories = computed(() => categories.value.filter((c) => c.isCustom))
 
 // 面板打开时拉取分类与相册列表
 onMounted(() => {
@@ -78,6 +81,38 @@ async function submitAddCategory() {
     newCategoryName.value = ''
     newCategoryTitlePrefix.value = ''
     message.value = `已添加分类：${data.category?.category || name}，可在下方添加款式`
+    emit('changed')
+  } catch (e) {
+    error.value = e.message || String(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+// 删除自建分类（含 public 目录与旗下款式，并 sync 作品集）
+async function submitDeleteCategory(cat) {
+  error.value = ''
+  message.value = ''
+  if (
+    !window.confirm(
+      `确定删除分类「${cat.category}」？\n该分类下所有款式与图片/视频将一并删除，且不可恢复。`
+    )
+  ) {
+    return
+  }
+  busy.value = true
+  try {
+    const res = await adminFetch(`/api/gallery/categories/${encodeURIComponent(cat.key)}`, {
+      method: 'DELETE',
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || '删除分类失败')
+    categories.value = data.categories || []
+    const keys = categories.value.map((c) => c.key)
+    if (!keys.includes(addCategoryKey.value) && categories.value.length) {
+      addCategoryKey.value = categories.value[0].key
+    }
+    message.value = `已删除分类：${cat.category}，下方 Tab 与作品集已同步`
     emit('changed')
   } catch (e) {
     error.value = e.message || String(e)
@@ -193,6 +228,23 @@ function handleLogout() {
           <button type="button" class="admin-btn admin-btn-cat" :disabled="busy" @click="submitAddCategory">
             {{ busy ? '处理中…' : '添加分类' }}
           </button>
+          <!-- 自建分类可删，删后下方 Tab 与网格同步刷新 -->
+          <div v-if="customCategories.length" class="admin-cat-delete">
+            <p class="admin-subheading">删除自建分类</p>
+            <ul class="admin-cat-list">
+              <li v-for="c in customCategories" :key="c.key" class="admin-cat-item">
+                <span>{{ c.category }}</span>
+                <button
+                  type="button"
+                  class="admin-btn admin-btn-del-cat"
+                  :disabled="busy"
+                  @click="submitDeleteCategory(c)"
+                >
+                  删除
+                </button>
+              </li>
+            </ul>
+          </div>
         </section>
 
         <!-- 添加款式 -->
@@ -367,5 +419,48 @@ function handleLogout() {
 .admin-btn-cat {
   background: #7a5230;
   color: #fff;
+}
+
+.admin-cat-delete {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed #e8dccf;
+}
+
+.admin-subheading {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  color: #6b5344;
+}
+
+.admin-cat-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-cat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.82rem;
+  color: #5c4033;
+}
+
+.admin-btn-del-cat {
+  padding: 0.25rem 0.55rem;
+  border: none;
+  border-radius: 6px;
+  background: #b42318;
+  color: #fff;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.admin-btn-del-cat:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 </style>

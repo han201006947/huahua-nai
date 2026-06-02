@@ -7,6 +7,7 @@ import {
   addCategory,
   deleteAlbum,
   deleteAlbumMedia,
+  deleteCategory,
   listAlbums,
   listCategories,
   readJsonBody,
@@ -77,6 +78,15 @@ export function galleryAdminPlugin() {
             assertAdmin(req)
             const body = await readJsonBody(req)
             const result = await addCategory(body)
+            sendJson(res, 200, result)
+            return
+          }
+
+          const catDelMatch = url.match(/^\/api\/gallery\/categories\/([^/?]+)/)
+          if (req.method === 'DELETE' && catDelMatch) {
+            assertAdmin(req)
+            const categoryKey = decodeURIComponent(catDelMatch[1])
+            const result = await deleteCategory(categoryKey)
             sendJson(res, 200, result)
             return
           }
