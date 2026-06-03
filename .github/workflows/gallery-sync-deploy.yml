@@ -10,6 +10,7 @@ on:
       - 'scripts/fix-dist-html.ps1'
       - 'scripts/fix-dist-html.mjs'
       - 'scripts/write-deploy-config-ci.mjs'
+      - 'scripts/deploy-gh-pages-ci.mjs'
       - 'scripts/optimize-dist-images.mjs'
       - 'vite.config.js'
       - 'index.html'
@@ -21,6 +22,7 @@ permissions:
 jobs:
   sync-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,9 +52,10 @@ jobs:
       - name: Write deploy.config for CI
         run: node scripts/write-deploy-config-ci.mjs
 
-      - name: Build and deploy gh-pages
+      - name: Build site
+        run: npm run build:ci
+
+      - name: Deploy gh-pages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm run build:ci
-          npx gh-pages -d dist -f
+        run: node scripts/deploy-gh-pages-ci.mjs
