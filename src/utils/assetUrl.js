@@ -10,10 +10,15 @@ const buildVer = typeof __SITE_BUILD_VER__ !== 'undefined' ? __SITE_BUILD_VER__ 
 // 仓库名，店主预览 master 上 public/ 用
 const githubRepo = typeof __GITHUB_REPO__ !== 'undefined' ? __GITHUB_REPO__ : ''
 
-// 店主登录后：走 raw.githubusercontent（比 jsDelivr 更快见到刚上传的图）
+// 店主登录后：走 jsDelivr master（国内比 raw.github 快）+ 媒体缓存戳
 function withMasterPreview(rel) {
   if (!githubRepo) return `./${rel}`
-  return `https://raw.githubusercontent.com/${githubRepo}/master/public/${rel}`
+  const bust =
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('gallery-media-bust')) ||
+    buildVer ||
+    ''
+  const q = bust ? `?t=${bust}` : ''
+  return `https://cdn.jsdelivr.net/gh/${githubRepo}@master/public/${rel}${q}`
 }
 
 // 拼接最终 URL（CDN 或相对路径 + 可选 ?v=）
@@ -26,7 +31,7 @@ function withBase(rel) {
 
 export function assetUrl(path) {
   if (!path) return path
-  if (/^https?:\/\//i.test(path)) return path
+  if (/^https?:\/\//i.test(path) || /^blob:/i.test(path)) return path
   const rel = String(path).replace(/^\.\//, '').replace(/^\//, '')
   return withBase(rel)
 }
@@ -34,7 +39,7 @@ export function assetUrl(path) {
 // 作品集网格：线上 load .thumb 小图；本地 dev 用原图（thumb 要 build 后才生成）
 export function coverThumbUrl(src) {
   if (!src) return src
-  if (/^https?:\/\//i.test(src)) return src
+  if (/^https?:\/\//i.test(src) || /^blob:/i.test(src)) return src
   if (/\.(mp4|webm|mov)$/i.test(src)) return src
   const rel = String(src).replace(/^\.\//, '').replace(/^\//, '')
   // 店主预览 master 无 .thumb，直接用原图

@@ -122,11 +122,15 @@ async function submitDeleteCategory(cat) {
   }
 }
 
-// 将 File 转为 base64
+// 将 File 转为 base64，并保留 blob 预览（上传完成前网格即可显示）
 async function filesFromInput(list) {
   const files = []
   for (const file of list) {
-    files.push({ name: file.name, data: await readFileAsBase64(file) })
+    files.push({
+      name: file.name,
+      data: await readFileAsBase64(file),
+      previewUrl: URL.createObjectURL(file),
+    })
   }
   return files
 }
@@ -151,7 +155,7 @@ async function submitAdd() {
       stylePreview: addStylePreview.value,
       files,
     })
-    message.value = `已添加款式：${data.album?.title || data.albumId}，下方作品集已更新（顾客站约 1 分钟同步）`
+    message.value = `已添加款式：${data.album?.title || data.albumId}，本页已更新；顾客重新打开页面约半分钟内同步`
     addTitle.value = ''
     addStylePreview.value = false
     if (input) input.value = ''

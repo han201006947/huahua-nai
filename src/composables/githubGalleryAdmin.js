@@ -15,6 +15,59 @@ import { getGithubToken } from './useAdminAuth.js'
 
 const CUSTOM_PATH = 'src/data/galleryCategories.custom.json'
 const OVERRIDES_PATH = 'src/data/galleryAlbums.overrides.js'
+const GALLERY_ALBUMS_PATH = 'src/data/galleryAlbums.js'
+
+// galleryAlbums.js 文件头（与 sync-gallery-albums.mjs 一致）
+const GALLERY_ALBUMS_HEADER = `// 穿戴甲贴手示意文案：戴在手上仅看款式，非店内实拍服务
+export const STYLE_PREVIEW_LABEL = {
+  badgeEn: 'PRESS-ON DISPLAY',
+  badgeZh: '仅看款式',
+  notice: '穿戴甲贴手展示 · 仅看款式',
+}
+
+// 作品相册：由 scripts/sync-gallery-albums.mjs 根据 public 文件夹自动生成
+// 更新 public 后运行 npm run sync-gallery；标题/仅看款式等见 galleryAlbums.overrides.js
+export const galleryAlbums = [
+`
+
+// 字符串写入 JS 单引号字面量时转义
+function escJsStr(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+// 单条相册序列化为 galleryAlbums.js 片段
+function serializeAlbum(album) {
+  const lines = [
+    '  {',
+    `    id: '${escJsStr(album.id)}',`,
+    `    title: '${escJsStr(album.title)}',`,
+    `    category: '${escJsStr(album.category)}',`,
+  ]
+  if (album.coverVideo) {
+    lines.push(`    coverVideo: '${escJsStr(album.cover)}',`)
+  }
+  lines.push(`    cover: '${escJsStr(album.cover)}',`, `    hasVideo: ${Boolean(album.hasVideo)},`)
+  if (album.stylePreview) lines.push('    stylePreview: true,')
+  if (album.videoOnly) lines.push('    videoOnly: true,')
+  lines.push('    media: [')
+  for (const m of album.media) {
+    lines.push(`      { type: '${m.type}', src: '${escJsStr(m.src)}' },`)
+  }
+  lines.push('    ],', '  },')
+  return lines.join('\n')
+}
+
+// 店主增删后立即写 galleryAlbums.js，顾客 raw 拉取无需等 Actions
+async function writeGalleryAlbumsJs(albums) {
+  const content = `${GALLERY_ALBUMS_HEADER}${albums.map(serializeAlbum).join('\n')}\n]\n`
+  const { sha } = await readRepoText(GALLERY_ALBUMS_PATH).catch(() => ({ sha: null }))
+  await writeRepoText(
+    GALLERY_ALBUMS_PATH,
+    content,
+    sha,
+    'chore: sync galleryAlbums from mobile admin'
+  )
+}
 
 // 合并内置与自定义分类
 function mergeCategories(customList) {
@@ -115,6 +168,7 @@ export async function onlineDeleteCategory(categoryKey) {
   await saveCustomCategories(custom)
 
   const albums = await scanAlbumsAfterDeleteCategory(cat.category, cat.key)
+  await writeGalleryAlbumsJs(albums)
   return { categoryKey: key, categories: await onlineListCategories(), albums, category: '' }
 }
 
@@ -202,9 +256,11 @@ export async function onlineAddAlbum(payload) {
 
   const folderName = await nextFolderName(cat.dir, cat.folderPrefix)
   const uploadedNames = []
+  const previewUrls = {}
   for (let i = 0; i < files.length; i += 1) {
     const safeName = sanitizeFileName(files[i].name, i)
     uploadedNames.push(safeName)
+    if (files[i].previewUrl) previewUrls[safeName] = files[i].previewUrl
     const repoPath = `public/${cat.dir}/${folderName}/${safeName}`
     await writeRepoBinary(repoPath, files[i].data, null, `feat: add ${repoPath}`)
   }
@@ -222,8 +278,13 @@ export async function onlineAddAlbum(payload) {
     await saveOverridesObject(overrides)
   }
 
-  const optimistic = buildAlbumFromUpload(cat, folderName, uploadedNames, { title, stylePreview })
+  const optimistic = buildAlbumFromUpload(cat, folderName, uploadedNames, {
+    title,
+    stylePreview,
+    previewUrls,
+  })
   const albums = await scanAlbumsWithFallback(optimistic, albumId)
+  await writeGalleryAlbumsJs(albums)
   const album = albums.find((a) => a.id === albumId) || optimistic
   return { albumId, album, albums, category: cat.category }
 }
@@ -254,6 +315,7 @@ export async function onlineDeleteAlbum(albumId) {
   }
 
   const albums = await scanAlbumsAfterDelete(albumId)
+  await writeGalleryAlbumsJs(albums)
   return { albumId, albums, category: cat.category }
 }
 

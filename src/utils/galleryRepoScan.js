@@ -32,14 +32,16 @@ function toWebPath(categoryDir, ...parts) {
   return `./${categoryDir}/${parts.join('/')}`.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
-// 由刚上传的文件名拼出一条相册（GitHub 列表有延迟时先乐观展示）
+// 由刚上传的文件名拼出一条相册（可选本地 blob 预览，上传完成前即可显示）
 export function buildAlbumFromUpload(cat, folderName, fileNames, opts = {}) {
+  const previewUrls = opts.previewUrls || {}
   const albumId = `${cat.key}-${folderName}`
   const media = fileNames.map((name) => {
     const isVid = VIDEO_EXT.test(name)
+    const src = previewUrls[name] || toWebPath(cat.dir, folderName, name)
     return {
       type: isVid ? 'video' : 'image',
-      src: toWebPath(cat.dir, folderName, name),
+      src,
     }
   })
   const hasVideo = media.some((m) => m.type === 'video')
@@ -215,7 +217,13 @@ export async function scanAlbumsWithFallback(fallbackAlbum, expectAlbumId) {
     }
     if (i < 2) await new Promise((r) => setTimeout(r, 1200))
   }
-  if (albums.some((a) => a.id === expectAlbumId)) return albums
+  if (albums.some((a) => a.id === expectAlbumId)) {
+    // 刚上传仍用 blob 预览，避免 master CDN 未就绪时封面空白
+    if (fallbackAlbum?.cover?.startsWith('blob:')) {
+      return albums.map((a) => (a.id === expectAlbumId ? fallbackAlbum : a))
+    }
+    return albums
+  }
   return [...albums, fallbackAlbum]
 }
 

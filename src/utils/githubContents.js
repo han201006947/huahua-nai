@@ -184,21 +184,32 @@ export async function listRepoDir(dirPath) {
   return Array.isArray(data) ? data : []
 }
 
-// 从 raw 拉取 galleryAlbums.js 并解析
-export async function fetchGalleryAlbumsFromRepo() {
-  const branch = await ensureSourceBranch()
-  const url = `https://raw.githubusercontent.com/${REPO}/${branch}/src/data/galleryAlbums.js?t=${Date.now()}`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error('作品集尚未同步，请稍后再试或在电脑 push master 后重试')
-  const text = await res.text()
-  const blob = new Blob([text], { type: 'text/javascript' })
-  const modUrl = URL.createObjectURL(blob)
-  try {
-    const mod = await import(/* @vite-ignore */ modUrl)
-    return [...(mod.galleryAlbums || [])]
-  } finally {
-    URL.revokeObjectURL(modUrl)
+// 从 raw 拉取 galleryAlbums.js（无需登录，给顾客扫码用）
+export async function fetchPublicGalleryAlbums() {
+  if (!REPO) throw new Error('未配置线上仓库')
+  for (const branch of [PREFERRED_BRANCH, 'master', 'main']) {
+    const url = `https://raw.githubusercontent.com/${REPO}/${branch}/src/data/galleryAlbums.js?t=${Date.now()}`
+    const res = await fetch(url)
+    if (!res.ok) continue
+    const text = await res.text()
+    const blob = new Blob([text], { type: 'text/javascript' })
+    const modUrl = URL.createObjectURL(blob)
+    try {
+      const mod = await import(/* @vite-ignore */ modUrl)
+      return [...(mod.galleryAlbums || [])]
+    } finally {
+      URL.revokeObjectURL(modUrl)
+    }
   }
+  throw new Error('无法加载最新作品集')
+}
+
+// 从 raw 拉取 galleryAlbums.js 并解析（店主快速拉列表）
+export async function fetchGalleryAlbumsFromRepo() {
+  if (getGithubToken()) {
+    await ensureSourceBranch()
+  }
+  return fetchPublicGalleryAlbums()
 }
 
 export { REPO, PREFERRED_BRANCH as BRANCH }

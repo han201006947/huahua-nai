@@ -20,7 +20,7 @@ import { notifyGallerySync, useGallerySyncListener } from '../composables/useGal
 import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
-const { albums, categoryOptions, reloadAlbums, reloadCategories, isDev } = useGalleryAlbums()
+const { albums, categoryOptions, reloadAlbums, reloadCategories, refreshCustomerAlbums, isDev } = useGalleryAlbums()
 
 // 店主 session（扫码登录；main.js 已提前 initAdminAuth）
 const { isAdminLoggedIn, isOnlineAdminMode } = useAdminAuth()
@@ -243,8 +243,33 @@ function onKeydown(event) {
   }
 }
 
+// 店主增删后刷新图片 CDN 缓存戳（jsDelivr master 用）
+function bumpGalleryMediaBust() {
+  try {
+    sessionStorage.setItem('gallery-media-bust', String(Date.now()))
+  } catch {
+    /* 忽略 */
+  }
+}
+
+// 顾客从其它 App 返回时拉最新列表
+function onCustomerVisibilityRefresh() {
+  if (document.visibilityState === 'visible') refreshCustomerAlbums()
+}
+
+// 顾客页定时拉最新 galleryAlbums（店主删款后无需等 Actions）
+let customerPollTimer = null
+
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
+  // 顾客：打开/返回页面时拉 GitHub 最新 galleryAlbums（不依赖旧 app.js 打包）
+  if (isOnlineAdminMode() && !isAdminLoggedIn.value) {
+    refreshCustomerAlbums()
+    document.addEventListener('visibilitychange', onCustomerVisibilityRefresh)
+    customerPollTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshCustomerAlbums()
+    }, 45000)
+  }
   // dev 删款 reload 后滚回作品集区域
   if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
     sessionStorage.removeItem('gallery-scroll-restore')
@@ -253,6 +278,14 @@ onMounted(async () => {
     })
   }
   nextTick(() => bindGalleryObserver())
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('visibilitychange', onCustomerVisibilityRefresh)
+  if (customerPollTimer) window.clearInterval(customerPollTimer)
+  galleryObserver?.disconnect()
+  unlockScroll()
 })
 
 // 店主登录完成后（含扫码后 initAdminAuth）再拉管理数据；顾客不请求 GitHub
@@ -314,6 +347,7 @@ async function onGalleryAdminChanged(arg) {
   galleryListKey.value += 1
   await nextTick()
   bindGalleryObserver()
+  bumpGalleryMediaBust()
   if (!fromBroadcast) notifyGallerySync()
 }
 
@@ -327,6 +361,7 @@ async function applyMediaChangeResult(data) {
   else closeAlbum()
   await nextTick()
   bindGalleryObserver()
+  bumpGalleryMediaBust()
   notifyGallerySync()
 }
 
@@ -406,12 +441,6 @@ async function deleteAlbumFromGrid(album) {
     deletingAlbumId.value = ''
   }
 }
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown)
-  galleryObserver?.disconnect()
-  unlockScroll()
-})
 </script>
 
 <template>
