@@ -29,7 +29,6 @@ if (!publicUrl) {
 await writeLabeledQr({
   url: publicUrl,
   title: '【顾客扫码】',
-  subtitle: '只看作品集 · 可发给客人',
   outPath,
   qrWidth: 480,
 })
