@@ -62,6 +62,16 @@ export const galleryAlbums = [
     ],
   },
   {
+    id: 'caihui-c6',
+    title: '贴纸彩绘 6',
+    category: '彩绘',
+    cover: './caihui/c6/1780283592275.png',
+    hasVideo: false,
+    media: [
+      { type: 'image', src: './caihui/c6/1780283592275.png' },
+    ],
+  },
+  {
     id: 'fashi-f1',
     title: '法式经典',
     category: '法式',
