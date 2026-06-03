@@ -23,6 +23,11 @@ export function getGithubToken() {
   return sessionStorage.getItem(GITHUB_TOKEN_KEY) || ''
 }
 
+// 店主已登录：可扫 master 上 public/ 并预览刚上传的图（顾客仍看 gh-pages）
+export function isOwnerGalleryPreview() {
+  return isOnlineAdminMode() && isAdminLoggedIn.value && Boolean(getGithubToken())
+}
+
 // 本地 dev：带 session 头；线上：带 GitHub Token（部分请求走 githubGalleryAdmin）
 export function adminFetch(url, options = {}) {
   if (isOnlineAdminMode()) {
@@ -167,5 +172,6 @@ export function useAdminAuth() {
     initAdminAuth,
     isDev,
     isOnlineAdminMode,
+    isOwnerGalleryPreview,
   }
 }

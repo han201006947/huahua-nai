@@ -1,14 +1,24 @@
 /**
- * 静态资源 URL：线上走 jsDelivr（国内更快），离线包仍用相对路径 ./ 
+ * 静态资源 URL：线上走 jsDelivr（国内更快），离线包仍用相对路径 ./
  */
+import { isOwnerGalleryPreview } from '../composables/useAdminAuth.js'
 
 // 构建时注入：jsDelivr 根地址，如 https://cdn.jsdelivr.net/gh/user/repo@gh-pages
 const cdnBase = typeof __CDN_BASE__ !== 'undefined' ? __CDN_BASE__ : ''
 // 构建版本号，破除 CDN 旧缓存
 const buildVer = typeof __SITE_BUILD_VER__ !== 'undefined' ? __SITE_BUILD_VER__ : ''
+// 仓库名，店主预览 master 上 public/ 用
+const githubRepo = typeof __GITHUB_REPO__ !== 'undefined' ? __GITHUB_REPO__ : ''
+
+// 店主登录后：图片走 master/public（上传后立即可见，不必等 gh-pages deploy）
+function withMasterPreview(rel) {
+  if (!githubRepo) return `./${rel}`
+  return `https://cdn.jsdelivr.net/gh/${githubRepo}@master/public/${rel}`
+}
 
 // 拼接最终 URL（CDN 或相对路径 + 可选 ?v=）
 function withBase(rel) {
+  if (isOwnerGalleryPreview()) return withMasterPreview(rel)
   const q = buildVer ? `?v=${buildVer}` : ''
   if (cdnBase) return `${cdnBase}/${rel}${q}`
   return `./${rel}${q}`

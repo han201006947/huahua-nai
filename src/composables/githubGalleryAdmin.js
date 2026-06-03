@@ -10,6 +10,8 @@ import {
   writeRepoBinary,
   writeRepoText,
 } from '../utils/githubContents.js'
+import { scanAlbumsFromPublicRepo } from '../utils/galleryRepoScan.js'
+import { getGithubToken } from './useAdminAuth.js'
 
 const CUSTOM_PATH = 'src/data/galleryCategories.custom.json'
 const OVERRIDES_PATH = 'src/data/galleryAlbums.overrides.js'
@@ -112,7 +114,7 @@ export async function onlineDeleteCategory(categoryKey) {
   custom.splice(idx, 1)
   await saveCustomCategories(custom)
 
-  const albums = await fetchGalleryAlbumsFromRepo()
+  const albums = await loadAlbumsForAdmin()
   return { categoryKey: key, categories: await onlineListCategories(), albums }
 }
 
@@ -218,11 +220,9 @@ export async function onlineAddAlbum(payload) {
     await saveOverridesObject(overrides)
   }
 
-  return {
-    albumId,
-    album: null,
-    albums: await waitForGallerySync(),
-  }
+  const albums = await loadAlbumsForAdmin()
+  const album = albums.find((a) => a.id === albumId) || null
+  return { albumId, album, albums }
 }
 
 // 删除款式目录或文件
@@ -250,27 +250,16 @@ export async function onlineDeleteAlbum(albumId) {
     await saveOverridesObject(overrides)
   }
 
-  return { albumId, albums: await waitForGallerySync() }
+  return { albumId, albums: await loadAlbumsForAdmin() }
 }
 
-// 等待 GitHub Actions sync 后拉最新 albums（约 30～90 秒）
-export async function waitForGallerySync(maxWaitMs = 120000) {
-  const start = Date.now()
-  let lastLen = -1
-  while (Date.now() - start < maxWaitMs) {
-    try {
-      const albums = await fetchGalleryAlbumsFromRepo()
-      if (albums.length !== lastLen || Date.now() - start > 8000) return albums
-      lastLen = albums.length
-    } catch {
-      /* 尚未 sync */
-    }
-    await new Promise((r) => setTimeout(r, 4000))
-  }
+// 店主已登录：扫 public/ 立即可见；未登录：读 galleryAlbums.js
+async function loadAlbumsForAdmin() {
+  if (getGithubToken()) return scanAlbumsFromPublicRepo()
   return fetchGalleryAlbumsFromRepo()
 }
 
 // 列出相册
 export async function onlineListAlbums() {
-  return fetchGalleryAlbumsFromRepo()
+  return loadAlbumsForAdmin()
 }

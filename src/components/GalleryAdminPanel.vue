@@ -151,7 +151,7 @@ async function submitAdd() {
       stylePreview: addStylePreview.value,
       files,
     })
-    message.value = `已添加款式：${data.album?.title || data.albumId}（线上约 1 分钟内更新）`
+    message.value = `已添加款式：${data.album?.title || data.albumId}，下方作品集已更新（顾客站约 1 分钟同步）`
     addTitle.value = ''
     addStylePreview.value = false
     if (input) input.value = ''
@@ -187,7 +187,7 @@ function handleLogout() {
 
     <div v-if="panelOpen" class="admin-panel">
       <p class="admin-tip">
-        已验证店主 <strong>15235952769</strong>。改动会同步到 GitHub，约 1 分钟内顾客扫码也能看到。
+        已验证店主 <strong>15235952769</strong>。添加后下方作品集<strong>立即</strong>更新；顾客扫码约 1 分钟内同步。
         仅店主保存的登录二维码可进入此面板。
       </p>
 

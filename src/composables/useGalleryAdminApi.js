@@ -9,7 +9,6 @@ import {
   onlineDeleteCategory,
   onlineListAlbums,
   onlineListCategories,
-  waitForGallerySync,
 } from './githubGalleryAdmin.js'
 
 async function parseJson(res) {
@@ -84,9 +83,8 @@ export async function requestDeleteAlbum(albumId) {
   return parseJson(res)
 }
 
-// 线上增删后等待 Actions sync（本地 dev 立即返回）
+// 线上增删后 reload 即扫 public/，无需再等 Actions
 export async function waitForGalleryUpdate() {
-  if (isOnlineAdminMode()) return waitForGallerySync()
   return null
 }
 

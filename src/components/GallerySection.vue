@@ -13,7 +13,6 @@ import {
   requestAddAlbumMedia,
   requestDeleteAlbum,
   requestDeleteAlbumMedia,
-  waitForGalleryUpdate,
 } from '../composables/useGalleryAdminApi.js'
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
@@ -289,10 +288,6 @@ async function onGalleryAdminChanged(fromBroadcast = false) {
   coverFailedIds.value = new Set()
   try {
     await Promise.all([reloadAlbums(), reloadCategories()])
-    if (isOnlineAdminMode() && !fromBroadcast) {
-      await waitForGalleryUpdate()
-      await reloadAlbums()
-    }
   } catch (e) {
     window.alert(e.message || String(e))
   }
