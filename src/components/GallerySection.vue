@@ -20,7 +20,7 @@ import { notifyGallerySync, useGallerySyncListener } from '../composables/useGal
 import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
-const { albums, categoryOptions, latestAlbumIds, reloadCategories, refreshOnlineGallery, tickOnlineGallery, isDev } = useGalleryAlbums()
+const { albums, categoryOptions, latestAlbumIds, reloadCategories, isDev } = useGalleryAlbums()
 
 // 店主 session（扫码登录；main.js 已提前 initAdminAuth）
 const { isAdminLoggedIn, isOnlineAdminMode, isOwnerGalleryPreview } = useAdminAuth()
@@ -122,23 +122,8 @@ const filteredAlbums = computed(() => {
   return albums.value.filter((item) => item.category === activeCategory.value)
 })
 
-// 「最新款式」：revision.latestIds 与当前列表交集（分类筛选时只显示该分类下的最新）
-const latestDisplayAlbums = computed(() => {
-  const ids = latestAlbumIds.value
-  if (!ids.length) return []
-  const map = new Map(albums.value.map((a) => [a.id, a]))
-  let list = ids.map((id) => map.get(id)).filter(Boolean)
-  if (activeCategory.value && activeCategory.value !== '全部') {
-    list = list.filter((a) => a.category === activeCategory.value)
-  }
-  return list
-})
-
-// 主网格：与以前一样展示全部款式（最新款在上方区块会再显示一次）
+// 主网格：展示全部款式
 const mainGridAlbums = computed(() => filteredAlbums.value)
-
-// 是否展示最新区块
-const showLatestSection = computed(() => latestDisplayAlbums.value.length > 0)
 
 // 网格封面是否为纯视频（不在列表里预加载 mp4，点开详情再看）
 function gridCoverIsVideo(album) {
@@ -282,7 +267,21 @@ function onKeydown(event) {
   }
 }
 
-// 店主增删后刷新图片 CDN 缓存戳（jsDelivr master 用）
+// 从 LatestStylesSection 点击跳转后打开对应款式
+function tryOpenPendingAlbum() {
+  let pendingId = ''
+  try {
+    pendingId = sessionStorage.getItem('gallery-open-album') || ''
+    if (pendingId) sessionStorage.removeItem('gallery-open-album')
+  } catch {
+    /* 忽略 */
+  }
+  if (!pendingId) return
+  const album = albums.value.find((a) => a.id === pendingId)
+  if (album) openAlbum(album)
+}
+
+// 店主增删后刷新图片 CDN 缓存戳
 function bumpGalleryMediaBust() {
   try {
     sessionStorage.setItem('gallery-media-bust', String(Date.now()))
@@ -290,74 +289,6 @@ function bumpGalleryMediaBust() {
     /* 忽略 */
   }
 }
-
-// 线上同步成功后刷新网格（不阻塞首屏，先显示打包静态列表）
-async function applyOnlineGallerySync(force = false) {
-  const result = force
-    ? { changed: await refreshOnlineGallery() }
-    : await tickOnlineGallery()
-  if (result.changed) {
-    galleryListKey.value += 1
-    coverFailedIds.value = new Set()
-    await nextTick()
-    bindGalleryObserver()
-  }
-}
-
-// 从后台返回：只轻量比对 revision，不强制拉大文件
-async function onVisibilityGalleryRefresh() {
-  if (document.visibilityState !== 'visible') return
-  await applyOnlineGallerySync(false)
-}
-
-// 线上后台同步：首屏零网络；用户滚到作品集或 15 秒 idle 后再比对
-const BG_SYNC_IDLE_MS = 15000
-const ONLINE_POLL_MS = 30000
-let onlinePollTimer = null
-let bgSyncScheduled = false
-
-// 首次同步与轮询（不阻塞渲染、不在 mount 立刻拉大文件）
-function scheduleBackgroundGallerySync() {
-  if (bgSyncScheduled || !isOnlineAdminMode()) return
-  bgSyncScheduled = true
-  const runFirst = () => {
-    void applyOnlineGallerySync(false)
-  }
-  if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(runFirst, { timeout: BG_SYNC_IDLE_MS })
-  } else {
-    setTimeout(runFirst, BG_SYNC_IDLE_MS)
-  }
-  onlinePollTimer = window.setInterval(() => {
-    if (document.visibilityState !== 'visible') return
-    void applyOnlineGallerySync(false)
-  }, ONLINE_POLL_MS)
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-  if (isOnlineAdminMode()) {
-    // 首屏静态列表 + 构建 revision；数秒后再后台对齐 master
-    scheduleBackgroundGallerySync()
-    document.addEventListener('visibilitychange', onVisibilityGalleryRefresh)
-  }
-  // dev 删款 reload 后滚回作品集区域
-  if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
-    sessionStorage.removeItem('gallery-scroll-restore')
-    nextTick(() => {
-      document.getElementById('gallery')?.scrollIntoView({ behavior: 'instant', block: 'start' })
-    })
-  }
-  nextTick(() => bindGalleryObserver())
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown)
-  document.removeEventListener('visibilitychange', onVisibilityGalleryRefresh)
-  if (onlinePollTimer) window.clearInterval(onlinePollTimer)
-  galleryObserver?.disconnect()
-  unlockScroll()
-})
 
 // 店主登录后只展开管理面板；列表与顾客走同一套 tickOnlineGallery
 watch(
@@ -380,8 +311,24 @@ watch(filteredAlbums, () => {
   nextTick(() => bindGalleryObserver())
 })
 
-watch(latestDisplayAlbums, () => {
-  nextTick(() => bindGalleryObserver())
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
+    sessionStorage.removeItem('gallery-scroll-restore')
+    nextTick(() => {
+      document.getElementById('gallery')?.scrollIntoView({ behavior: 'instant', block: 'start' })
+    })
+  }
+  nextTick(() => {
+    bindGalleryObserver()
+    tryOpenPendingAlbum()
+  })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  galleryObserver?.disconnect()
+  unlockScroll()
 })
 
 // 其他标签/窗口增删后，本页作品集与管理区同步刷新
@@ -539,37 +486,6 @@ async function deleteAlbumFromGrid(album) {
         v-model:open="adminPanelOpen"
         @changed="onGalleryAdminChanged"
       />
-
-      <!-- 锚点：首页「最新款式」按钮平滑滚到此 -->
-      <div id="gallery-latest" class="gallery-latest-anchor"></div>
-
-      <!-- 最新款式：店主新上传的款式置顶展示 -->
-      <div v-if="showLatestSection" :key="'latest-' + galleryListKey" class="gallery-latest-block">
-        <div class="gallery-latest-header">
-          <span class="gallery-latest-label">NEW</span>
-          <h3 class="gallery-latest-title">最新款式</h3>
-          <p class="gallery-latest-desc">店主新上传的款式会同步显示在这里</p>
-        </div>
-        <div class="gallery-grid gallery-grid--latest">
-          <GalleryAlbumCard
-            v-for="album in latestDisplayAlbums"
-            :key="'latest-' + album.id"
-            :album="album"
-            show-latest-badge
-            :can-manage="canManage"
-            :deleting-album-id="deletingAlbumId"
-            :cover-failed="coverFailedIds.has(album.id)"
-            :load-cover="shouldLoadCover(album)"
-            :grid-cover-is-video="gridCoverIsVideo"
-            :is-landscape="isLandscape"
-            :is-cover-landscape-video="isCoverLandscapeVideo"
-            @open="openAlbum(album)"
-            @delete="deleteAlbumFromGrid(album)"
-            @cover-load="markLandscapeIfNeeded($event, 'cover-' + album.id)"
-            @cover-error="onCoverImgError($event, album)"
-          />
-        </div>
-      </div>
 
       <!-- 分类筛选标签 -->
       <div class="filter-bar">
@@ -761,41 +677,6 @@ async function deleteAlbumFromGrid(album) {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-white);
-}
-
-.gallery-latest-anchor {
-  scroll-margin-top: calc(var(--header-height) + 16px);
-}
-
-.gallery-latest-block {
-  margin-bottom: 28px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(201, 168, 124, 0.35);
-}
-
-.gallery-latest-header {
-  margin-bottom: 16px;
-}
-
-.gallery-latest-label {
-  display: inline-block;
-  font-size: 0.65rem;
-  letter-spacing: 0.2em;
-  color: var(--color-primary);
-  margin-bottom: 4px;
-}
-
-.gallery-latest-title {
-  margin: 0 0 6px;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.gallery-latest-desc {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
 }
 
 .gallery-grid {

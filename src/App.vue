@@ -4,6 +4,7 @@ import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
 import NavHeader from './components/NavHeader.vue'
 import HeroSection from './components/HeroSection.vue'
 import ServiceSection from './components/ServiceSection.vue'
+import LatestStylesSection from './components/LatestStylesSection.vue'
 import ContactSection from './components/ContactSection.vue'
 import AppFooter from './components/AppFooter.vue'
 
@@ -62,6 +63,7 @@ onUnmounted(() => {
   <main>
     <HeroSection />
     <ServiceSection />
+    <LatestStylesSection />
     <div id="below-fold-sentinel" class="below-fold-sentinel" aria-hidden="true" />
     <GallerySection v-if="showGallery" />
     <AboutSection v-if="showAbout" />

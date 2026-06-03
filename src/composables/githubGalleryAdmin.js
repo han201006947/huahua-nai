@@ -103,7 +103,7 @@ async function writeGalleryRevision(latestIds) {
 // 新增款式：置顶 latestIds 最前
 async function bumpLatestOnAdd(albumId) {
   const cur = await readGalleryRevision()
-  const latestIds = [albumId, ...(cur.latestIds || []).filter((id) => id !== albumId)].slice(0, 12)
+  const latestIds = [albumId, ...(cur.latestIds || []).filter((id) => id !== albumId)].slice(0, 3)
   return writeGalleryRevision(latestIds)
 }
 

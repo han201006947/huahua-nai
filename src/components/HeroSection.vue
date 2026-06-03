@@ -23,9 +23,9 @@ function scrollToGalleryAnchor(id) {
   tryScroll()
 }
 
-// 滚动到作品集「最新款式」
+// 滚动到「最新款式」区块（美甲服务下方，无需 lazy 作品集）
 function goLatest() {
-  scrollToGalleryAnchor('gallery-latest')
+  document.getElementById('latest-styles')?.scrollIntoView({ behavior: 'smooth' })
 }
 
 // 滚动到作品展示
