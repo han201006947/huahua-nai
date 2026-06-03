@@ -27,4 +27,7 @@ export const albumOverrides = {
   'caihui-c5': {
     stylePreview: true,
   },
+  'caihui-c6': {
+    stylePreview: true,
+  },
 }
