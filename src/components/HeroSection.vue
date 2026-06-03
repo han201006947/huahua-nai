@@ -9,6 +9,12 @@ function goContact() {
   document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
 }
 
+// 滚动到作品集「最新款式」锚点（无新款时落在作品集顶部）
+function goLatest() {
+  const el = document.getElementById('gallery-latest') || document.getElementById('gallery')
+  el?.scrollIntoView({ behavior: 'smooth' })
+}
+
 // 滚动到作品展示
 function goGallery() {
   document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' })
@@ -35,8 +41,9 @@ function goGallery() {
         <p class="hero-slogan">{{ brand.slogan }}</p>
         <p class="hero-desc">{{ brand.heroDesc }}</p>
         <div class="hero-actions">
-          <button class="btn-primary" @click="goContact">免费预约体验</button>
-          <button class="btn-outline" @click="goGallery">浏览作品集</button>
+          <button type="button" class="btn-latest" @click="goLatest">最新款式</button>
+          <button type="button" class="btn-primary" @click="goContact">免费预约体验</button>
+          <button type="button" class="btn-outline" @click="goGallery">浏览作品集</button>
         </div>
 
         <!-- 数据亮点条 -->
@@ -163,8 +170,31 @@ function goGallery() {
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
   margin-top: 36px;
+}
+
+/* 「最新款式」：与作品集置顶区角标同色系 */
+.btn-latest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #e91e8c, #ff6b9d);
+  box-shadow: 0 4px 16px rgba(233, 30, 140, 0.28);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-latest:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(233, 30, 140, 0.35);
 }
 
 /* 数据统计行 */

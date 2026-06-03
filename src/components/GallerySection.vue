@@ -518,6 +518,9 @@ async function deleteAlbumFromGrid(album) {
         @changed="onGalleryAdminChanged"
       />
 
+      <!-- 锚点：首页「最新款式」按钮平滑滚到此 -->
+      <div id="gallery-latest" class="gallery-latest-anchor"></div>
+
       <!-- 最新款式：店主新上传的款式置顶展示 -->
       <div v-if="showLatestSection" :key="'latest-' + galleryListKey" class="gallery-latest-block">
         <div class="gallery-latest-header">
@@ -736,6 +739,10 @@ async function deleteAlbumFromGrid(album) {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-white);
+}
+
+.gallery-latest-anchor {
+  scroll-margin-top: calc(var(--header-height) + 16px);
 }
 
 .gallery-latest-block {
