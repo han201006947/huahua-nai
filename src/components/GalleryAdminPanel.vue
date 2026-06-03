@@ -32,8 +32,9 @@ const addTitle = ref('')
 const addStylePreview = ref(false)
 // 新增表单：待上传文件列表
 const addFiles = ref(null)
-// 请求进行中
-const busy = ref(false)
+// 分类区 / 款式区各自独立 loading，避免点一个两个按钮都在「处理中」
+const busyCategory = ref(false)
+const busyAlbum = ref(false)
 // 操作结果提示
 const message = ref('')
 // 错误提示
@@ -74,7 +75,7 @@ async function submitAddCategory() {
     error.value = '请填写分类名称'
     return
   }
-  busy.value = true
+  busyCategory.value = true
   try {
     const data = await requestAddCategory({
       category: name,
@@ -89,11 +90,11 @@ async function submitAddCategory() {
   } catch (e) {
     error.value = e.message || String(e)
   } finally {
-    busy.value = false
+    busyCategory.value = false
   }
 }
 
-// 删除自建分类（含 public 目录与旗下款式，并 sync 作品集）
+// 删除自建分类
 async function submitDeleteCategory(cat) {
   error.value = ''
   message.value = ''
@@ -104,7 +105,7 @@ async function submitDeleteCategory(cat) {
   ) {
     return
   }
-  busy.value = true
+  busyCategory.value = true
   try {
     const data = await requestDeleteCategory(cat.key)
     categories.value = data.categories || []
@@ -117,11 +118,11 @@ async function submitDeleteCategory(cat) {
   } catch (e) {
     error.value = e.message || String(e)
   } finally {
-    busy.value = false
+    busyCategory.value = false
   }
 }
 
-// 将 File 转为 base64 供 API 写入 public
+// 将 File 转为 base64
 async function filesFromInput(list) {
   const files = []
   for (const file of list) {
@@ -140,7 +141,7 @@ async function submitAdd() {
     error.value = '请选择至少一张图片或一个视频'
     return
   }
-  busy.value = true
+  busyAlbum.value = true
   try {
     const files = await filesFromInput(list)
     message.value = '正在上传并同步线上，请稍候…'
@@ -159,7 +160,7 @@ async function submitAdd() {
   } catch (e) {
     error.value = e.message || String(e)
   } finally {
-    busy.value = false
+    busyAlbum.value = false
   }
 }
 
@@ -203,7 +204,7 @@ function handleLogout() {
               v-model="newCategoryName"
               type="text"
               placeholder="如：贴片甲、延长甲"
-              :disabled="busy"
+              :disabled="busyCategory"
             />
           </label>
           <label class="admin-field">
@@ -212,11 +213,16 @@ function handleLogout() {
               v-model="newCategoryTitlePrefix"
               type="text"
               placeholder="留空则与分类名相同"
-              :disabled="busy"
+              :disabled="busyCategory"
             />
           </label>
-          <button type="button" class="admin-btn admin-btn-cat" :disabled="busy" @click="submitAddCategory">
-            {{ busy ? '处理中…' : '添加分类' }}
+          <button
+            type="button"
+            class="admin-btn admin-btn-cat"
+            :disabled="busyCategory"
+            @click="submitAddCategory"
+          >
+            {{ busyCategory ? '处理中…' : '添加分类' }}
           </button>
           <!-- 自建分类可删，删后下方 Tab 与网格同步刷新 -->
           <div v-if="customCategories.length" class="admin-cat-delete">
@@ -227,7 +233,7 @@ function handleLogout() {
                 <button
                   type="button"
                   class="admin-btn admin-btn-del-cat"
-                  :disabled="busy"
+                  :disabled="busyCategory"
                   @click="submitDeleteCategory(c)"
                 >
                   删除
@@ -242,7 +248,7 @@ function handleLogout() {
           <h4 class="admin-heading">添加款式</h4>
           <label class="admin-field">
             <span>分类</span>
-            <select v-model="addCategoryKey" :disabled="busy">
+            <select v-model="addCategoryKey" :disabled="busyAlbum">
               <option v-for="c in categories" :key="c.key" :value="c.key">
                 {{ c.category }}（{{ c.titlePrefix }}）
               </option>
@@ -250,18 +256,18 @@ function handleLogout() {
           </label>
           <label class="admin-field">
             <span>标题（可选）</span>
-            <input v-model="addTitle" type="text" placeholder="留空则自动生成编号标题" :disabled="busy" />
+            <input v-model="addTitle" type="text" placeholder="留空则自动生成编号标题" :disabled="busyAlbum" />
           </label>
           <label class="admin-check">
-            <input v-model="addStylePreview" type="checkbox" :disabled="busy" />
+            <input v-model="addStylePreview" type="checkbox" :disabled="busyAlbum" />
             <span>穿戴甲贴手 · 仅看款式</span>
           </label>
           <label class="admin-field">
             <span>图片 / 视频</span>
-            <input ref="addFiles" type="file" accept="image/*,video/*" multiple :disabled="busy" />
+            <input ref="addFiles" type="file" accept="image/*,video/*" multiple :disabled="busyAlbum" />
           </label>
-          <button type="button" class="admin-btn admin-btn-add" :disabled="busy" @click="submitAdd">
-            {{ busy ? '处理中…' : '添加款式' }}
+          <button type="button" class="admin-btn admin-btn-add" :disabled="busyAlbum" @click="submitAdd">
+            {{ busyAlbum ? '处理中…' : '添加款式' }}
           </button>
         </section>
       </div>
