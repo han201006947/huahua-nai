@@ -21,6 +21,7 @@
 
 ## Git 提交
 
-- **是否已提交**：否
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：34da512（nail-beauty / master / 已 push）
+- **提交说明**：feat: 恢复 GitHub Actions 自动同步 deploy
+- **PAT 权限**：已验证 `repo, workflow`
