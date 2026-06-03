@@ -91,6 +91,8 @@ export async function verifyCategoryPublicGone(catDir) {
   await pollUntil('删除分类目录', async () => !(await repoPathExists(`public/${catDir}`)))
 }
 
+// 验证 revision.latestIds 是否包含/不含某 id
+export async function verifyLatestIdsForAlbum(albumId, shouldContain) {
   await pollUntil('最新款式 revision', async () => {
     const rev = await fetchGalleryRevision()
     const has = (rev.latestIds || []).includes(albumId)
