@@ -29,6 +29,6 @@
 
 ## Git 提交
 
-- **是否已提交**：待回填
-- **本地 commit**：待回填
-- **提交说明**：待回填
+- **是否已提交**：是
+- **本地 commit**：be4e016（nail-beauty / master / 未 push）
+- **提交说明**：fix: Actions 构建改跨平台脚本修复 gh-pages deploy
