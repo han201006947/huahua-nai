@@ -230,18 +230,20 @@ function parseGalleryAlbumsFromJs(text) {
   throw new Error('作品集文件不完整')
 }
 
-// 按分支尝试多个 CDN/raw URL
-async function fetchTextFromRepo(relativePath) {
+// 按分支尝试多个 CDN/raw URL（cacheBust 作为 query 破除 CDN 缓存）
+async function fetchTextFromRepo(relativePath, cacheBust) {
   if (!REPO) throw new Error('未配置线上仓库')
+  const q = cacheBust != null ? `?t=${cacheBust}` : `?t=${Date.now()}`
   const branches = [PREFERRED_BRANCH, 'master', 'main']
   for (const branch of branches) {
+    // 列表数据优先 raw（jsDelivr 对 master 常延迟数分钟）
     const urls = [
-      `https://cdn.jsdelivr.net/gh/${REPO}@${branch}/${relativePath}`,
       `https://raw.githubusercontent.com/${REPO}/${branch}/${relativePath}`,
+      `https://cdn.jsdelivr.net/gh/${REPO}@${branch}/${relativePath}`,
     ]
     for (const base of urls) {
       try {
-        const res = await fetch(`${base}?t=${Date.now()}`)
+        const res = await fetch(`${base}${q}`)
         if (!res.ok) continue
         return await res.text()
       } catch {
@@ -254,7 +256,7 @@ async function fetchTextFromRepo(relativePath) {
 
 // 轻量 revision（顾客每几秒轮询，有变化再拉完整列表）
 export async function fetchGalleryRevision() {
-  const text = await fetchTextFromRepo('public/gallery-revision.json')
+  const text = await fetchTextFromRepo('public/gallery-revision.json', Date.now())
   const data = JSON.parse(text)
   return {
     rev: data.rev ?? 0,
@@ -262,9 +264,10 @@ export async function fetchGalleryRevision() {
   }
 }
 
-// 从 CDN/raw 拉取 galleryAlbums.js（无需登录，给顾客扫码用）
-export async function fetchPublicGalleryAlbums() {
-  const text = await fetchTextFromRepo('src/data/galleryAlbums.js')
+// 从 CDN/raw 拉取 galleryAlbums.js（无需登录；rev 用于破除缓存）
+export async function fetchPublicGalleryAlbums(rev) {
+  const bust = rev != null ? String(rev) : String(Date.now())
+  const text = await fetchTextFromRepo(`src/data/galleryAlbums.js`, bust)
   return [...parseGalleryAlbumsFromJs(text)]
 }
 

@@ -104,14 +104,14 @@ async function writeGalleryRevision(latestIds) {
 async function bumpLatestOnAdd(albumId) {
   const cur = await readGalleryRevision()
   const latestIds = [albumId, ...(cur.latestIds || []).filter((id) => id !== albumId)].slice(0, 12)
-  await writeGalleryRevision(latestIds)
+  return writeGalleryRevision(latestIds)
 }
 
 // 删除款式：从 latestIds 移除
 async function bumpLatestOnDelete(albumId) {
   const cur = await readGalleryRevision()
   const latestIds = (cur.latestIds || []).filter((id) => id !== albumId)
-  await writeGalleryRevision(latestIds)
+  return writeGalleryRevision(latestIds)
 }
 
 // 删除整分类：去掉该分类下所有 latest id
@@ -119,7 +119,7 @@ async function bumpLatestOnDeleteCategory(categoryKey) {
   const cur = await readGalleryRevision()
   const prefix = `${categoryKey}-`
   const latestIds = (cur.latestIds || []).filter((id) => !id.startsWith(prefix))
-  await writeGalleryRevision(latestIds)
+  return writeGalleryRevision(latestIds)
 }
 
 // 合并内置与自定义分类
@@ -222,8 +222,15 @@ export async function onlineDeleteCategory(categoryKey) {
 
   const albums = await scanAlbumsAfterDeleteCategory(cat.category, cat.key)
   await writeGalleryAlbumsJs(albums)
-  await bumpLatestOnDeleteCategory(key)
-  return { categoryKey: key, categories: await onlineListCategories(), albums, category: '' }
+  const revision = await bumpLatestOnDeleteCategory(key)
+  return {
+    categoryKey: key,
+    categories: await onlineListCategories(),
+    albums,
+    category: '',
+    latestIds: revision.latestIds,
+    rev: revision.rev,
+  }
 }
 
 // 读 overrides 文件为对象
@@ -339,9 +346,16 @@ export async function onlineAddAlbum(payload) {
   })
   const albums = await scanAlbumsWithFallback(optimistic, albumId)
   await writeGalleryAlbumsJs(albums)
-  await bumpLatestOnAdd(albumId)
+  const revision = await bumpLatestOnAdd(albumId)
   const album = albums.find((a) => a.id === albumId) || optimistic
-  return { albumId, album, albums, category: cat.category }
+  return {
+    albumId,
+    album,
+    albums,
+    category: cat.category,
+    latestIds: revision.latestIds,
+    rev: revision.rev,
+  }
 }
 
 // 删除款式目录或文件
@@ -371,8 +385,14 @@ export async function onlineDeleteAlbum(albumId) {
 
   const albums = await scanAlbumsAfterDelete(albumId)
   await writeGalleryAlbumsJs(albums)
-  await bumpLatestOnDelete(albumId)
-  return { albumId, albums, category: cat.category }
+  const revision = await bumpLatestOnDelete(albumId)
+  return {
+    albumId,
+    albums,
+    category: cat.category,
+    latestIds: revision.latestIds,
+    rev: revision.rev,
+  }
 }
 
 // 店主已登录：扫 public/ 立即可见；未登录：读 galleryAlbums.js

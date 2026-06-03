@@ -4,7 +4,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineAsyncComp
 // 引入穿戴甲贴手示意文案
 import { STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
 // 作品集列表：开发态可热更新
-import { useGalleryAlbums } from '../composables/useGalleryAlbums.js'
+import { useGalleryAlbums, patchOnlineGalleryMeta } from '../composables/useGalleryAlbums.js'
 // 店主登录后才可管理
 import { useAdminAuth } from '../composables/useAdminAuth.js'
 // 本地 dev 删除款式 API
@@ -388,6 +388,7 @@ async function onGalleryAdminChanged(arg) {
         next = next.filter((a) => a.id !== payload.removedAlbumId)
       }
       albums.value = next
+      patchOnlineGalleryMeta(payload)
       await reloadCategories()
     } else {
       await Promise.all([reloadAlbums(), reloadCategories()])
@@ -479,6 +480,8 @@ async function deleteAlbumFromGrid(album) {
         albums: next,
         category: album.category,
         removedAlbumId: removedId,
+        latestIds: data.latestIds,
+        rev: data.rev,
       })
       deletingAlbumId.value = ''
       return

@@ -12,8 +12,26 @@ const categoryOptionsRef = shallowRef([])
 // 「最新款式」置顶 id（public/gallery-revision.json）
 const latestAlbumIdsRef = shallowRef([])
 const isDev = import.meta.env.DEV
-// 线上上次见到的 revision，未变则不拉完整 galleryAlbums.js
+// 线上上次见到的 revision，未变则可能跳过拉 galleryAlbums.js
 let lastOnlineRev = null
+// 上次 latestIds 快照（rev 异常时仍能触发补拉）
+let lastLatestIdsKey = ''
+
+// 店主增删后立刻更新置顶 id 与 revision（不必等轮询）
+export function patchOnlineGalleryMeta(meta = {}) {
+  if (Array.isArray(meta.latestIds)) {
+    latestAlbumIdsRef.value = [...meta.latestIds]
+    lastLatestIdsKey = meta.latestIds.join(',')
+  }
+  if (meta.rev != null) lastOnlineRev = meta.rev
+}
+
+// 判断 latestIds 里是否有款式尚未出现在当前列表
+function albumsMissingLatest(ids, list) {
+  if (!ids?.length) return false
+  const set = new Set(list.map((a) => a.id))
+  return ids.some((id) => !set.has(id))
+}
 
 // 仅 dev 或店主已登录时走管理 API 热更新分类
 function canHotReload() {
@@ -28,11 +46,16 @@ export function useGalleryAlbums() {
     try {
       const revData = await fetchGalleryRevision()
       latestAlbumIdsRef.value = [...revData.latestIds]
-      if (lastOnlineRev !== null && revData.rev === lastOnlineRev) {
+      const idsKey = revData.latestIds.join(',')
+      const revChanged = lastOnlineRev !== null && revData.rev !== lastOnlineRev
+      const idsChanged = idsKey !== lastLatestIdsKey
+      const missingLatest = albumsMissingLatest(revData.latestIds, albumsRef.value)
+      if (lastOnlineRev !== null && !revChanged && !idsChanged && !missingLatest) {
         return { changed: false }
       }
       lastOnlineRev = revData.rev
-      const list = await fetchPublicGalleryAlbums()
+      lastLatestIdsKey = idsKey
+      const list = await fetchPublicGalleryAlbums(revData.rev)
       albumsRef.value = [...list]
       return { changed: true }
     } catch {
@@ -51,6 +74,7 @@ export function useGalleryAlbums() {
   // 强制全量刷新（从后台返回等）
   async function refreshOnlineGallery() {
     lastOnlineRev = null
+    lastLatestIdsKey = ''
     return tickOnlineGallery().then((r) => r.changed)
   }
 

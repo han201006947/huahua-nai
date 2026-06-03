@@ -114,7 +114,13 @@ async function submitDeleteCategory(cat) {
       addCategoryKey.value = categories.value[0].key
     }
     message.value = `已删除分类：${cat.category}，下方 Tab 与作品集已同步`
-    emit('changed', { albums: data.albums, category: '', removedAlbumId: null })
+    emit('changed', {
+      albums: data.albums,
+      category: '',
+      removedAlbumId: null,
+      latestIds: data.latestIds,
+      rev: data.rev,
+    })
   } catch (e) {
     error.value = e.message || String(e)
   } finally {
@@ -160,7 +166,13 @@ async function submitAdd() {
     addStylePreview.value = false
     if (input) input.value = ''
     await refreshMeta()
-    emit('changed', { albums: data.albums, album: data.album, category: data.category })
+    emit('changed', {
+      albums: data.albums,
+      album: data.album,
+      category: data.category,
+      latestIds: data.latestIds,
+      rev: data.rev,
+    })
   } catch (e) {
     error.value = e.message || String(e)
   } finally {
