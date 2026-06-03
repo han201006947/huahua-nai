@@ -212,3 +212,43 @@ export async function scanAlbumsWithFallback(fallbackAlbum, expectAlbumId) {
   if (albums.some((a) => a.id === expectAlbumId)) return albums
   return [...albums, fallbackAlbum]
 }
+
+// 删除款式后扫描；GitHub 目录更新有延迟时乐观去掉已删 id
+export async function scanAlbumsAfterDelete(deletedAlbumId) {
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const albums = await scanAlbumsFromPublicRepo()
+      if (!albums.some((a) => a.id === deletedAlbumId)) return albums
+    } catch {
+      /* 重试 */
+    }
+    if (i < 2) await new Promise((r) => setTimeout(r, 1200))
+  }
+  try {
+    const albums = await scanAlbumsFromPublicRepo()
+    return albums.filter((a) => a.id !== deletedAlbumId)
+  } catch {
+    return []
+  }
+}
+
+// 删除整个分类后扫描；仍列出该分类款式时乐观过滤
+export async function scanAlbumsAfterDeleteCategory(categoryLabel, categoryKey) {
+  const stillHas = (list) =>
+    list.some((a) => a.category === categoryLabel || a.id.startsWith(`${categoryKey}-`))
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const albums = await scanAlbumsFromPublicRepo()
+      if (!stillHas(albums)) return albums
+    } catch {
+      /* 重试 */
+    }
+    if (i < 2) await new Promise((r) => setTimeout(r, 1200))
+  }
+  try {
+    const albums = await scanAlbumsFromPublicRepo()
+    return albums.filter((a) => a.category !== categoryLabel && !a.id.startsWith(`${categoryKey}-`))
+  } catch {
+    return []
+  }
+}

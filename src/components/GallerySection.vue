@@ -298,7 +298,7 @@ async function onGalleryAdminChanged(arg) {
   } catch (e) {
     window.alert(e.message || String(e))
   }
-  if (payload?.category) activeCategory.value = payload.category
+  if (payload && 'category' in payload) activeCategory.value = payload.category
   syncActiveCategoryFilter()
   galleryListKey.value += 1
   await nextTick()
@@ -365,10 +365,10 @@ async function deleteAlbumFromGrid(album) {
   if (!window.confirm(`确定删除「${album.title}」？\n将删除 public 内对应图片/视频，且不可恢复。`)) return
   deletingAlbumId.value = album.id
   try {
-    await requestDeleteAlbum(album.id)
+    const data = await requestDeleteAlbum(album.id)
     notifyGallerySync()
     if (isOnlineAdminMode()) {
-      await onGalleryAdminChanged()
+      await onGalleryAdminChanged({ albums: data.albums, category: album.category })
       deletingAlbumId.value = ''
       return
     }

@@ -10,7 +10,7 @@ import {
   writeRepoBinary,
   writeRepoText,
 } from '../utils/githubContents.js'
-import { scanAlbumsFromPublicRepo, scanAlbumsWithFallback, buildAlbumFromUpload } from '../utils/galleryRepoScan.js'
+import { scanAlbumsFromPublicRepo, scanAlbumsWithFallback, buildAlbumFromUpload, scanAlbumsAfterDelete, scanAlbumsAfterDeleteCategory } from '../utils/galleryRepoScan.js'
 import { getGithubToken } from './useAdminAuth.js'
 
 const CUSTOM_PATH = 'src/data/galleryCategories.custom.json'
@@ -114,8 +114,8 @@ export async function onlineDeleteCategory(categoryKey) {
   custom.splice(idx, 1)
   await saveCustomCategories(custom)
 
-  const albums = await loadAlbumsForAdmin()
-  return { categoryKey: key, categories: await onlineListCategories(), albums }
+  const albums = await scanAlbumsAfterDeleteCategory(cat.category, cat.key)
+  return { categoryKey: key, categories: await onlineListCategories(), albums, category: '' }
 }
 
 // 读 overrides 文件为对象
@@ -253,7 +253,8 @@ export async function onlineDeleteAlbum(albumId) {
     await saveOverridesObject(overrides)
   }
 
-  return { albumId, albums: await loadAlbumsForAdmin() }
+  const albums = await scanAlbumsAfterDelete(albumId)
+  return { albumId, albums, category: cat.category }
 }
 
 // 店主已登录：扫 public/ 立即可见；未登录：读 galleryAlbums.js
