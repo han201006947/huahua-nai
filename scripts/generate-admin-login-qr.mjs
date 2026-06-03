@@ -43,25 +43,22 @@ async function main() {
   const origin = loadPublicUrl()
   const loginUrl = buildAdminLoginUrl(origin)
   if (!fs.existsSync(releaseDir)) fs.mkdirSync(releaseDir, { recursive: true })
-  const outPrimary = path.join(releaseDir, '店主扫码-管理款式.png')
-  const outLegacy = path.join(releaseDir, '店主管理登录二维码.png')
+  const outPng = path.join(releaseDir, '店主扫码-管理款式.png')
   const outTxt = path.join(releaseDir, '店主管理登录链接.txt')
 
   await writeLabeledQr({
     url: loginUrl,
     title: '【店主扫码】',
     subtitle: '管理款式 · 仅店主保存 · 勿发客人',
-    outPath: outPrimary,
+    outPath: outPng,
     qrWidth: 400,
   })
-  fs.copyFileSync(outPrimary, outLegacy)
   fs.writeFileSync(outTxt, `${loginUrl}\n`, 'utf8')
 
   console.log('>> 使用地址:', origin)
   console.log('>> 店主手机号:', cfg.adminPhone)
   console.log('>> 登录链接:', loginUrl)
-  console.log('>> 已生成:', outPrimary)
-  console.log('>> 兼容副本:', outLegacy)
+  console.log('>> 已生成:', outPng)
   console.log('>> 链接文本:', outTxt)
   if (origin.startsWith('http://localhost') || origin.startsWith('http://192.168.')) {
     console.log('>> 提示：线上管理请先在 deploy.config.json 填 publicUrl，再 gen-admin-qr')

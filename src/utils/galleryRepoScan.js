@@ -126,7 +126,7 @@ async function loadOverridesObject() {
   }
 }
 
-// 扫描单个分类目录
+// 扫描单个分类目录（子文件夹并行 list，加快店主扫码后加载）
 async function scanCategory(catConfig, overrides) {
   let entries = []
   try {
@@ -136,17 +136,27 @@ async function scanCategory(catConfig, overrides) {
   }
   entries.sort((a, b) => naturalCompare(a.name, b.name))
 
+  const dirEntries = entries.filter((e) => e.type === 'dir' && e.name !== '.gitkeep')
+
+  const subLists = await Promise.all(
+    dirEntries.map((entry) =>
+      listRepoDir(`public/${catConfig.dir}/${entry.name}`).catch(() => [])
+    )
+  )
+
   const albums = []
   let index = 0
 
-  for (const entry of entries) {
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i]
     if (entry.name === '.gitkeep') continue
     index += 1
     let id
     let media = []
 
     if (entry.type === 'dir') {
-      const subEntries = await listRepoDir(`public/${catConfig.dir}/${entry.name}`)
+      const dirIdx = dirEntries.indexOf(entry)
+      const subEntries = subLists[dirIdx] || []
       const files = subEntries
         .filter((f) => f.type === 'file' && (isImage(f.name) || isVideo(f.name)))
         .map((f) => f.name)
@@ -187,14 +197,10 @@ async function scanCategory(catConfig, overrides) {
 
 // 扫描 public/ 下全部分类，供店主登录后立即预览
 export async function scanAlbumsFromPublicRepo() {
-  const custom = await loadCustomCategories()
+  const [custom, overrides] = await Promise.all([loadCustomCategories(), loadOverridesObject()])
   const categories = [...BUILTIN_GALLERY_CATEGORIES, ...custom]
-  const overrides = await loadOverridesObject()
-  const all = []
-  for (const cat of categories) {
-    all.push(...(await scanCategory(cat, overrides)))
-  }
-  return all
+  const parts = await Promise.all(categories.map((cat) => scanCategory(cat, overrides)))
+  return parts.flat()
 }
 
 // 扫描 GitHub；若新款式尚未出现在目录列表中则并入 fallback（刚上传常见）

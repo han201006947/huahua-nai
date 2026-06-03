@@ -245,17 +245,6 @@ function onKeydown(event) {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
-  if (isDev || isOnlineAdminMode()) {
-    if (isAdminLoggedIn.value) adminPanelOpen.value = true
-    reloadCategories().catch(() => {})
-    reloadAlbums().catch(() => {})
-    // 店主扫码带 #gallery 时滚到作品集
-    if (window.location.hash.includes('gallery')) {
-      nextTick(() => {
-        document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      })
-    }
-  }
   // dev 删款 reload 后滚回作品集区域
   if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
     sessionStorage.removeItem('gallery-scroll-restore')
@@ -265,6 +254,23 @@ onMounted(async () => {
   }
   nextTick(() => bindGalleryObserver())
 })
+
+// 店主登录完成后（含扫码后 initAdminAuth）再拉管理数据；顾客不请求 GitHub
+watch(
+  isAdminLoggedIn,
+  (loggedIn) => {
+    if (!loggedIn || (!isDev && !isOnlineAdminMode())) return
+    adminPanelOpen.value = true
+    reloadCategories().catch(() => {})
+    reloadAlbums().catch(() => {})
+    if (window.location.hash.includes('gallery')) {
+      nextTick(() => {
+        document.getElementById('gallery')?.scrollIntoView({ behavior: 'instant', block: 'start' })
+      })
+    }
+  },
+  { immediate: true }
+)
 
 watch(filteredAlbums, () => {
   nextTick(() => bindGalleryObserver())

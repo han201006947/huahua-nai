@@ -5,6 +5,9 @@ import { ref } from 'vue'
 
 const SESSION_KEY = 'gallery-admin-session'
 const GITHUB_TOKEN_KEY = 'gallery-github-token'
+// 令牌校验缓存，避免每次打开都请求 GitHub /user
+const VERIFY_CACHE_KEY = 'gallery-github-token-verified-at'
+const VERIFY_TTL_MS = 30 * 60 * 1000
 const isDev = import.meta.env.DEV
 const githubRepo = typeof __GITHUB_REPO__ !== 'undefined' ? __GITHUB_REPO__ : ''
 const adminPhoneCfg = typeof __ADMIN_PHONE__ !== 'undefined' ? __ADMIN_PHONE__ : '15235952769'
@@ -59,6 +62,7 @@ async function loginOnline(secret, phone) {
   await verifyGithubToken(secret)
   sessionStorage.setItem(GITHUB_TOKEN_KEY, secret)
   sessionStorage.setItem(SESSION_KEY, 'online')
+  sessionStorage.setItem(VERIFY_CACHE_KEY, String(Date.now()))
   isAdminLoggedIn.value = true
   adminPhone.value = phone
   return true
@@ -91,13 +95,20 @@ async function validateSession() {
       isAdminLoggedIn.value = false
       return false
     }
+    const verifiedAt = Number(sessionStorage.getItem(VERIFY_CACHE_KEY) || 0)
+    if (Date.now() - verifiedAt < VERIFY_TTL_MS) {
+      isAdminLoggedIn.value = true
+      return true
+    }
     try {
       await verifyGithubToken(token)
+      sessionStorage.setItem(VERIFY_CACHE_KEY, String(Date.now()))
       isAdminLoggedIn.value = true
       return true
     } catch {
       sessionStorage.removeItem(GITHUB_TOKEN_KEY)
       sessionStorage.removeItem(SESSION_KEY)
+      sessionStorage.removeItem(VERIFY_CACHE_KEY)
       isAdminLoggedIn.value = false
       return false
     }
@@ -136,6 +147,7 @@ async function tryLoginFromUrl() {
 export function logoutAdmin() {
   sessionStorage.removeItem(SESSION_KEY)
   sessionStorage.removeItem(GITHUB_TOKEN_KEY)
+  sessionStorage.removeItem(VERIFY_CACHE_KEY)
   isAdminLoggedIn.value = false
 }
 
