@@ -28,6 +28,6 @@
 
 ## Git 提交
 
-- **是否已提交**：待回填
-- **本地 commit**：待回填
-- **提交说明**：待回填
+- **是否已提交**：是
+- **本地 commit**：ecf17fc（nail-beauty / master / 未 push）
+- **提交说明**：feat: 店主增删款式增加 GitHub 写入回读验证
