@@ -17,13 +17,13 @@ import {
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
-import { assetUrl, coverThumbUrl } from '../utils/assetUrl.js'
+import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, reloadAlbums, reloadCategories, refreshCustomerAlbums, isDev } = useGalleryAlbums()
 
 // 店主 session（扫码登录；main.js 已提前 initAdminAuth）
-const { isAdminLoggedIn, isOnlineAdminMode } = useAdminAuth()
+const { isAdminLoggedIn, isOnlineAdminMode, isOwnerGalleryPreview } = useAdminAuth()
 
 // 是否允许管理/删除（已登录即可，线上与本地 dev 均可用）
 const canManage = computed(() => isAdminLoggedIn.value)
@@ -135,9 +135,15 @@ function shouldLoadCover(album) {
 // 封面图加载失败 id 集合（显示占位而不重复 alt 文字）
 const coverFailedIds = ref(new Set())
 
-// 封面加载失败：回退原图或标记占位
+// 封面加载失败：店主先回退 master；再试 gh-pages 原图
 function onCoverImgError(event, album) {
   const img = event.target
+  // 店主：gh-pages 尚无缩略图时回退 master（新款式 deploy 前）
+  if (isOwnerGalleryPreview() && img.dataset.masterFallback !== '1') {
+    img.dataset.masterFallback = '1'
+    img.src = ownerMasterFallbackUrl(album.cover)
+    return
+  }
   const fallback = assetUrl(album.cover)
   if (img.dataset.fallback === '1') {
     coverFailedIds.value = new Set([...coverFailedIds.value, album.id])
@@ -149,6 +155,14 @@ function onCoverImgError(event, album) {
   }
   img.dataset.fallback = '1'
   img.src = fallback
+}
+
+// 详情/灯箱内图片加载失败：店主回退 master
+function onMediaImgError(event, srcPath) {
+  const img = event.target
+  if (!isOwnerGalleryPreview() || img.dataset.masterFallback === '1') return
+  img.dataset.masterFallback = '1'
+  img.src = ownerMasterFallbackUrl(srcPath)
 }
 
 // 绑定作品集网格 IntersectionObserver，并重置视口内封面加载状态
@@ -593,6 +607,7 @@ async function deleteAlbumFromGrid(album) {
                 :alt="`${activeAlbum.title} 图片 ${index + 1}`"
                 loading="lazy"
                 @load="markLandscapeIfNeeded($event, 'detail-' + activeAlbum.id + '-' + index)"
+                @error="onMediaImgError($event, item.src)"
                 @click="openLightbox(item.src)"
               />
               <!-- 视频：横屏占两格，网格内直接播放 -->
@@ -657,6 +672,7 @@ async function deleteAlbumFromGrid(album) {
           alt="放大预览"
           :class="{ 'is-landscape': isLandscape('lightbox-' + lightboxSrc) }"
           @load="markLandscapeIfNeeded($event, 'lightbox-' + lightboxSrc)"
+          @error="onMediaImgError($event, lightboxSrc)"
           @click.stop
         />
         <!-- 放大层底部说明：穿戴甲贴手仅看款式 -->
