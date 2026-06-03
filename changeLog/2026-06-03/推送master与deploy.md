@@ -41,6 +41,7 @@
 
 ## Git 提交
 
-- **是否已提交**：待文档 commit 后回填
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：feb9255（docs）；源码/fix 已在 4d77669 推送到 origin/master
+- **提交说明**：docs: 记录 master 推送与 gh-pages deploy 上线
+- **deploy**：`npm run deploy` 已成功（gh-pages Published）
