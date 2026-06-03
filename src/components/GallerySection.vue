@@ -289,8 +289,13 @@ async function onGalleryAdminChanged(arg) {
   landscapeKeys.value = new Set()
   coverFailedIds.value = new Set()
   try {
-    if (payload?.albums?.length) {
-      albums.value = [...payload.albums]
+    // 注意：空数组也是合法列表（删光某分类时），不能用 length 判断
+    if (Array.isArray(payload?.albums)) {
+      let next = [...payload.albums]
+      if (payload.removedAlbumId) {
+        next = next.filter((a) => a.id !== payload.removedAlbumId)
+      }
+      albums.value = next
       await reloadCategories()
     } else {
       await Promise.all([reloadAlbums(), reloadCategories()])
@@ -360,21 +365,37 @@ async function onAlbumMediaPicked(event) {
   }
 }
 
-// 点击卡片右下角删除（仅 dev + 管理面板展开时可见）
+// 点击卡片右下角删除（店主登录后可见）
 async function deleteAlbumFromGrid(album) {
   if (!window.confirm(`确定删除「${album.title}」？\n将删除 public 内对应图片/视频，且不可恢复。`)) return
-  deletingAlbumId.value = album.id
+  const removedId = album.id
+  deletingAlbumId.value = removedId
+  const snapshot = [...albums.value]
+  // 乐观更新：确认后立刻从网格移除，避免留空白卡片
+  albums.value = snapshot.filter((a) => a.id !== removedId)
+  galleryListKey.value += 1
+  await nextTick()
+  bindGalleryObserver()
   try {
-    const data = await requestDeleteAlbum(album.id)
+    const data = await requestDeleteAlbum(removedId)
     notifyGallerySync()
     if (isOnlineAdminMode()) {
-      await onGalleryAdminChanged({ albums: data.albums, category: album.category })
+      const next = (data.albums || []).filter((a) => a.id !== removedId)
+      await onGalleryAdminChanged({
+        albums: next,
+        category: album.category,
+        removedAlbumId: removedId,
+      })
       deletingAlbumId.value = ''
       return
     }
     sessionStorage.setItem('gallery-scroll-restore', '1')
     window.location.reload()
   } catch (e) {
+    albums.value = snapshot
+    galleryListKey.value += 1
+    await nextTick()
+    bindGalleryObserver()
     window.alert(e.message || String(e))
     deletingAlbumId.value = ''
   }
