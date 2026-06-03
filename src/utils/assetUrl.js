@@ -1,6 +1,6 @@
 /**
  * 静态资源 URL：线上走 jsDelivr gh-pages（含 .thumb 小图，国内更快）
- * 店主与顾客默认同一 CDN；新上传尚未 deploy 时由组件 @error 回退 master
+ * 店主与顾客默认同一 CDN；新上传尚未 deploy 时由组件 @error 回退 master / Pages 直链
  */
 // 构建时注入：jsDelivr 根地址，如 https://cdn.jsdelivr.net/gh/user/repo@gh-pages
 const cdnBase = typeof __CDN_BASE__ !== 'undefined' ? __CDN_BASE__ : ''
@@ -8,6 +8,14 @@ const cdnBase = typeof __CDN_BASE__ !== 'undefined' ? __CDN_BASE__ : ''
 const buildVer = typeof __SITE_BUILD_VER__ !== 'undefined' ? __SITE_BUILD_VER__ : ''
 // 仓库名，店主 gh-pages 404 时回退 master/public/
 const githubRepo = typeof __GITHUB_REPO__ !== 'undefined' ? __GITHUB_REPO__ : ''
+// GitHub Pages 站点根（CDN 失败时回退，与 deploy.config publicUrl 一致）
+const publicSiteUrl =
+  typeof __PUBLIC_SITE_URL__ !== 'undefined' ? String(__PUBLIC_SITE_URL__ || '') : ''
+
+// 相对路径规范化
+function normalizeRel(path) {
+  return String(path || '').replace(/^\.\//, '').replace(/^\//, '')
+}
 
 // gh-pages CDN（顾客与店主网格/详情默认走此路径，体积小加载快）
 function withGhPages(rel) {
@@ -16,11 +24,37 @@ function withGhPages(rel) {
   return `./${rel}${q}`
 }
 
+// GitHub Pages 直链（不经过 jsDelivr，新 deploy 后更快生效）
+export function pagesAssetUrl(path) {
+  if (!path) return path
+  if (/^https?:\/\//i.test(path) || /^blob:/i.test(path)) return path
+  const rel = normalizeRel(path)
+  if (publicSiteUrl) {
+    const bust =
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('gallery-media-bust')) ||
+      buildVer ||
+      ''
+    const q = bust ? `?t=${bust}` : ''
+    return `${publicSiteUrl}/${rel}${q}`
+  }
+  return `./${rel}`
+}
+
+// 网格缩略图 Pages 直链
+export function pagesCoverThumbUrl(src) {
+  if (!src) return src
+  if (/^https?:\/\//i.test(src) || /^blob:/i.test(src)) return src
+  if (/\.(mp4|webm|mov)$/i.test(src)) return src
+  const rel = normalizeRel(src)
+  const thumb = rel.replace(/(\.[a-z0-9]+)$/i, '.thumb$1')
+  return pagesAssetUrl(`./${thumb}`)
+}
+
 // 店主预览：master 上 public/ 原图（仅 gh-pages 404 时回退，如新上传未 deploy）
 export function ownerMasterFallbackUrl(path) {
   if (!path) return path
   if (/^https?:\/\//i.test(path) || /^blob:/i.test(path)) return path
-  const rel = String(path).replace(/^\.\//, '').replace(/^\//, '')
+  const rel = normalizeRel(path)
   if (!githubRepo) return `./${rel}`
   const bust =
     (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('gallery-media-bust')) ||
@@ -33,8 +67,7 @@ export function ownerMasterFallbackUrl(path) {
 export function assetUrl(path) {
   if (!path) return path
   if (/^https?:\/\//i.test(path) || /^blob:/i.test(path)) return path
-  const rel = String(path).replace(/^\.\//, '').replace(/^\//, '')
-  return withGhPages(rel)
+  return withGhPages(normalizeRel(path))
 }
 
 // 作品集网格：线上 load .thumb 小图；本地 dev 用原图（thumb 要 build 后才生成）
@@ -42,8 +75,7 @@ export function coverThumbUrl(src) {
   if (!src) return src
   if (/^https?:\/\//i.test(src) || /^blob:/i.test(src)) return src
   if (/\.(mp4|webm|mov)$/i.test(src)) return src
-  const rel = String(src).replace(/^\.\//, '').replace(/^\//, '')
-  // 开发态新增款式尚未 build，public 里没有 .thumb 文件
+  const rel = normalizeRel(src)
   if (import.meta.env.DEV) {
     return withGhPages(rel)
   }
@@ -51,7 +83,6 @@ export function coverThumbUrl(src) {
   return withGhPages(thumb)
 }
 
-// 是否启用 jsDelivr（供组件判断是否需预连接等）
 export function isOnlineCdn() {
   return Boolean(cdnBase)
 }

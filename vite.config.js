@@ -65,6 +65,8 @@ export default defineConfig(({ command }) => ({
     __GALLERY_BUILD_LATEST_IDS__: JSON.stringify(
       Array.isArray(galleryRevisionCfg.latestIds) ? galleryRevisionCfg.latestIds : []
     ),
+    // GitHub Pages 直链，CDN 失败时回退（微信内 jsDelivr 偶发不可用）
+    __PUBLIC_SITE_URL__: JSON.stringify(String(deployCfg.publicUrl || '').trim().replace(/\/$/, '')),
   },
   build: {
     // 关闭 module 分包，便于 file:// 直接打开（Chrome / 手机浏览器）

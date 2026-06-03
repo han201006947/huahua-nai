@@ -5,6 +5,7 @@ on:
     branches: [master, main]
     paths:
       - 'public/**'
+      - 'public/gallery-revision.json'
       - 'src/data/galleryAlbums.js'
       - 'src/data/galleryCategories.custom.json'
       - 'src/data/galleryAlbums.overrides.js'

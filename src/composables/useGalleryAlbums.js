@@ -23,6 +23,8 @@ const isDev = import.meta.env.DEV
 // 与构建 revision 对齐，远程 rev 相同则跳过拉大文件
 let lastOnlineRev = buildRev || null
 let lastLatestIdsKey = buildLatestIds.join(',')
+// 首次后台同步必拉一次完整列表（避免 rev 相同但打包列表过旧）
+let onlineListVerified = false
 
 // 店主增删后立刻更新置顶 id 与 revision（不必等轮询）
 export function patchOnlineGalleryMeta(meta = {}) {
@@ -68,7 +70,10 @@ export function useGalleryAlbums() {
       const missingLatest = albumsMissingLatest(revData.latestIds, albumsRef.value)
       lastOnlineRev = revData.rev
       lastLatestIdsKey = idsKey
-      if (!revChanged && !idsChanged && !missingLatest) {
+      const needFullList =
+        !onlineListVerified || revChanged || idsChanged || missingLatest
+      onlineListVerified = true
+      if (!needFullList) {
         return { changed: false }
       }
       const list = await fetchPublicGalleryAlbums(revData.rev)

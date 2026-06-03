@@ -17,7 +17,7 @@ import {
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
-import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl } from '../utils/assetUrl.js'
+import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, latestAlbumIds, reloadCategories, refreshOnlineGallery, tickOnlineGallery, isDev } = useGalleryAlbums()
@@ -145,36 +145,40 @@ function gridCoverIsVideo(album) {
   return /\.(mp4|webm|mov)$/i.test(album.cover || '')
 }
 
-// 封面懒加载：顾客与店主一致，先显示打包列表再后台同步
+// 封面懒加载：线上直接加载（避免网格空白）；dev 全加载
 function shouldLoadCover(album) {
   if (gridCoverIsVideo(album)) return false
-  if (isDev) return true
+  if (isDev || isOnlineAdminMode()) return true
   return visibleAlbumIds.value.has(album.id)
 }
 
 // 封面图加载失败 id 集合（显示占位而不重复 alt 文字）
 const coverFailedIds = ref(new Set())
 
-// 封面加载失败：店主先回退 master；再试 gh-pages 原图
+// 封面加载失败：CDN 缩略图 → CDN 原图 → Pages 直链 → 店主 master
 function onCoverImgError(event, album) {
   const img = event.target
-  // 店主：gh-pages 尚无缩略图时回退 master（新款式 deploy 前）
   if (isOwnerGalleryPreview() && img.dataset.masterFallback !== '1') {
     img.dataset.masterFallback = '1'
     img.src = ownerMasterFallbackUrl(album.cover)
     return
   }
-  const fallback = assetUrl(album.cover)
-  if (img.dataset.fallback === '1') {
-    coverFailedIds.value = new Set([...coverFailedIds.value, album.id])
+  if (img.dataset.fallback !== '1') {
+    img.dataset.fallback = '1'
+    img.src = assetUrl(album.cover)
     return
   }
-  if (!fallback || img.src === fallback) {
-    coverFailedIds.value = new Set([...coverFailedIds.value, album.id])
+  if (img.dataset.pagesThumb !== '1') {
+    img.dataset.pagesThumb = '1'
+    img.src = pagesCoverThumbUrl(album.cover)
     return
   }
-  img.dataset.fallback = '1'
-  img.src = fallback
+  if (img.dataset.pagesOrig !== '1') {
+    img.dataset.pagesOrig = '1'
+    img.src = pagesAssetUrl(album.cover)
+    return
+  }
+  coverFailedIds.value = new Set([...coverFailedIds.value, album.id])
 }
 
 // 详情/灯箱内图片加载失败：店主回退 master
