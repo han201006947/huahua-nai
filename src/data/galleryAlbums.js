@@ -63,14 +63,13 @@ export const galleryAlbums = [
     ],
   },
   {
-    id: 'caihui-c6',
+    id: 'caihui-c7',
     title: '贴纸彩绘 6',
     category: '彩绘',
-    cover: './caihui/c6/Camera_XHS_1780448691814.jpg',
+    cover: './caihui/c7/Camera_XHS_1780448691814.jpg',
     hasVideo: false,
-    stylePreview: true,
     media: [
-      { type: 'image', src: './caihui/c6/Camera_XHS_1780448691814.jpg' },
+      { type: 'image', src: './caihui/c7/Camera_XHS_1780448691814.jpg' },
     ],
   },
   {
