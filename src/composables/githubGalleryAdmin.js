@@ -16,6 +16,7 @@ import { getGithubToken } from './useAdminAuth.js'
 const CUSTOM_PATH = 'src/data/galleryCategories.custom.json'
 const OVERRIDES_PATH = 'src/data/galleryAlbums.overrides.js'
 const GALLERY_ALBUMS_PATH = 'src/data/galleryAlbums.js'
+const REVISION_PATH = 'public/gallery-revision.json'
 
 // galleryAlbums.js 文件头（与 sync-gallery-albums.mjs 一致）
 const GALLERY_ALBUMS_HEADER = `// 穿戴甲贴手示意文案：戴在手上仅看款式，非店内实拍服务
@@ -67,6 +68,58 @@ async function writeGalleryAlbumsJs(albums) {
     sha,
     'chore: sync galleryAlbums from mobile admin'
   )
+}
+
+// 读取顾客轮询用的 revision 文件
+async function readGalleryRevision() {
+  try {
+    const { text } = await readRepoText(REVISION_PATH)
+    const data = JSON.parse(text)
+    return {
+      rev: data.rev ?? 0,
+      latestIds: Array.isArray(data.latestIds) ? data.latestIds : [],
+    }
+  } catch {
+    return { rev: 0, latestIds: [] }
+  }
+}
+
+// 写入 revision（rev 用时间戳，顾客几秒内可感知增删）
+async function writeGalleryRevision(latestIds) {
+  const next = {
+    rev: Date.now(),
+    latestIds: [...latestIds],
+  }
+  const { sha } = await readRepoText(REVISION_PATH).catch(() => ({ sha: null }))
+  await writeRepoText(
+    REVISION_PATH,
+    `${JSON.stringify(next, null, 2)}\n`,
+    sha,
+    'chore: bump gallery revision'
+  )
+  return next
+}
+
+// 新增款式：置顶 latestIds 最前
+async function bumpLatestOnAdd(albumId) {
+  const cur = await readGalleryRevision()
+  const latestIds = [albumId, ...(cur.latestIds || []).filter((id) => id !== albumId)].slice(0, 12)
+  await writeGalleryRevision(latestIds)
+}
+
+// 删除款式：从 latestIds 移除
+async function bumpLatestOnDelete(albumId) {
+  const cur = await readGalleryRevision()
+  const latestIds = (cur.latestIds || []).filter((id) => id !== albumId)
+  await writeGalleryRevision(latestIds)
+}
+
+// 删除整分类：去掉该分类下所有 latest id
+async function bumpLatestOnDeleteCategory(categoryKey) {
+  const cur = await readGalleryRevision()
+  const prefix = `${categoryKey}-`
+  const latestIds = (cur.latestIds || []).filter((id) => !id.startsWith(prefix))
+  await writeGalleryRevision(latestIds)
 }
 
 // 合并内置与自定义分类
@@ -169,6 +222,7 @@ export async function onlineDeleteCategory(categoryKey) {
 
   const albums = await scanAlbumsAfterDeleteCategory(cat.category, cat.key)
   await writeGalleryAlbumsJs(albums)
+  await bumpLatestOnDeleteCategory(key)
   return { categoryKey: key, categories: await onlineListCategories(), albums, category: '' }
 }
 
@@ -285,6 +339,7 @@ export async function onlineAddAlbum(payload) {
   })
   const albums = await scanAlbumsWithFallback(optimistic, albumId)
   await writeGalleryAlbumsJs(albums)
+  await bumpLatestOnAdd(albumId)
   const album = albums.find((a) => a.id === albumId) || optimistic
   return { albumId, album, albums, category: cat.category }
 }
@@ -316,6 +371,7 @@ export async function onlineDeleteAlbum(albumId) {
 
   const albums = await scanAlbumsAfterDelete(albumId)
   await writeGalleryAlbumsJs(albums)
+  await bumpLatestOnDelete(albumId)
   return { albumId, albums, category: cat.category }
 }
 

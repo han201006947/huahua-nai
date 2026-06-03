@@ -20,7 +20,7 @@ import { notifyGallerySync, useGallerySyncListener } from '../composables/useGal
 import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
-const { albums, categoryOptions, reloadAlbums, reloadCategories, refreshCustomerAlbums, isDev } = useGalleryAlbums()
+const { albums, categoryOptions, latestAlbumIds, reloadAlbums, reloadCategories, refreshCustomerAlbums, tickCustomerGallery, isDev } = useGalleryAlbums()
 
 // 店主 session（扫码登录；main.js 已提前 initAdminAuth）
 const { isAdminLoggedIn, isOnlineAdminMode, isOwnerGalleryPreview } = useAdminAuth()
@@ -30,6 +30,8 @@ const canManage = computed(() => isAdminLoggedIn.value)
 
 // 管理面板（线上 build 含此组件，仅登录后显示）
 const GalleryAdminPanel = defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
+// 网格单卡（主列表 + 最新款式共用）
+import GalleryAlbumCard from './GalleryAlbumCard.vue'
 
 // 管理面板是否展开（登录后默认展开）
 const adminPanelOpen = ref(false)
@@ -119,6 +121,28 @@ const filteredAlbums = computed(() => {
   }
   return albums.value.filter((item) => item.category === activeCategory.value)
 })
+
+// 「最新款式」：revision.latestIds 与当前列表交集（分类筛选时只显示该分类下的最新）
+const latestDisplayAlbums = computed(() => {
+  const ids = latestAlbumIds.value
+  if (!ids.length) return []
+  const map = new Map(albums.value.map((a) => [a.id, a]))
+  let list = ids.map((id) => map.get(id)).filter(Boolean)
+  if (activeCategory.value && activeCategory.value !== '全部') {
+    list = list.filter((a) => a.category === activeCategory.value)
+  }
+  return list
+})
+
+// 主网格：排除已在「最新款式」区展示的，避免重复
+const mainGridAlbums = computed(() => {
+  const latestSet = new Set(latestDisplayAlbums.value.map((a) => a.id))
+  if (!latestSet.size) return filteredAlbums.value
+  return filteredAlbums.value.filter((a) => !latestSet.has(a.id))
+})
+
+// 是否展示最新区块
+const showLatestSection = computed(() => latestDisplayAlbums.value.length > 0)
 
 // 网格封面是否为纯视频（不在列表里预加载 mp4，点开详情再看）
 function gridCoverIsVideo(album) {
@@ -266,39 +290,37 @@ function bumpGalleryMediaBust() {
   }
 }
 
-// 顾客从其它 App 返回时拉最新列表
-async function onCustomerVisibilityRefresh() {
-  if (document.visibilityState !== 'visible') return
-  const synced = await refreshCustomerAlbums()
-  if (synced) {
+// 顾客端同步成功后刷新网格与懒加载
+async function applyCustomerGallerySync(force = false) {
+  const result = force
+    ? { changed: await refreshCustomerAlbums() }
+    : await tickCustomerGallery()
+  if (result.changed) {
     galleryListKey.value += 1
     coverFailedIds.value = new Set()
-    nextTick(() => bindGalleryObserver())
+    await nextTick()
+    bindGalleryObserver()
   }
 }
 
-// 顾客页定时拉最新 galleryAlbums（店主删款后无需等 Actions）
+// 顾客从其它 App 返回时拉最新列表
+async function onCustomerVisibilityRefresh() {
+  if (document.visibilityState !== 'visible') return
+  await applyCustomerGallerySync(true)
+}
+
+// 顾客页每 3 秒轮询 revision（有变化才拉完整列表，近实时）
 let customerPollTimer = null
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
-  // 顾客：打开/返回页面时拉 GitHub 最新 galleryAlbums（不依赖旧 app.js 打包）
   if (isOnlineAdminMode() && !isAdminLoggedIn.value) {
-    const ok = await refreshCustomerAlbums()
-    if (ok) {
-      galleryListKey.value += 1
-      coverFailedIds.value = new Set()
-    }
+    await applyCustomerGallerySync(true)
     document.addEventListener('visibilitychange', onCustomerVisibilityRefresh)
-    customerPollTimer = window.setInterval(async () => {
+    customerPollTimer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return
-      const synced = await refreshCustomerAlbums()
-      if (synced) {
-        galleryListKey.value += 1
-        coverFailedIds.value = new Set()
-        nextTick(() => bindGalleryObserver())
-      }
-    }, 30000)
+      applyCustomerGallerySync(false)
+    }, 3000)
   }
   // dev 删款 reload 后滚回作品集区域
   if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
@@ -336,6 +358,10 @@ watch(
 )
 
 watch(filteredAlbums, () => {
+  nextTick(() => bindGalleryObserver())
+})
+
+watch(latestDisplayAlbums, () => {
   nextTick(() => bindGalleryObserver())
 })
 
@@ -492,6 +518,34 @@ async function deleteAlbumFromGrid(album) {
         @changed="onGalleryAdminChanged"
       />
 
+      <!-- 最新款式：店主新上传的款式置顶展示 -->
+      <div v-if="showLatestSection" :key="'latest-' + galleryListKey" class="gallery-latest-block">
+        <div class="gallery-latest-header">
+          <span class="gallery-latest-label">NEW</span>
+          <h3 class="gallery-latest-title">最新款式</h3>
+          <p class="gallery-latest-desc">店主刚上传的新款，约几秒内同步到这里</p>
+        </div>
+        <div class="gallery-grid gallery-grid--latest">
+          <GalleryAlbumCard
+            v-for="album in latestDisplayAlbums"
+            :key="'latest-' + album.id"
+            :album="album"
+            show-latest-badge
+            :can-manage="canManage"
+            :deleting-album-id="deletingAlbumId"
+            :cover-failed="coverFailedIds.has(album.id)"
+            :load-cover="shouldLoadCover(album)"
+            :grid-cover-is-video="gridCoverIsVideo"
+            :is-landscape="isLandscape"
+            :is-cover-landscape-video="isCoverLandscapeVideo"
+            @open="openAlbum(album)"
+            @delete="deleteAlbumFromGrid(album)"
+            @cover-load="markLandscapeIfNeeded($event, 'cover-' + album.id)"
+            @cover-error="onCoverImgError($event, album)"
+          />
+        </div>
+      </div>
+
       <!-- 分类筛选标签 -->
       <div class="filter-bar">
         <button
@@ -507,70 +561,22 @@ async function deleteAlbumFromGrid(album) {
 
       <!-- 相册封面网格（key 随增删变化，避免删后仍显示旧卡片） -->
       <div :key="galleryListKey" class="gallery-grid">
-        <figure
-          v-for="album in filteredAlbums"
+        <GalleryAlbumCard
+          v-for="album in mainGridAlbums"
           :key="album.id"
-          class="gallery-item is-clickable"
-          :data-album-id="album.id"
-          @click="openAlbum(album)"
-        >
-          <div
-            class="gallery-img-wrap"
-            :class="{
-              'is-landscape': !album.coverVideo && !album.videoOnly && isLandscape('cover-' + album.id),
-              'is-landscape-video': isCoverLandscapeVideo(album),
-            }"
-          >
-            <!-- 纯视频封面：网格只显示占位，避免下载几十 MB 的 mp4 -->
-            <div
-              v-if="gridCoverIsVideo(album)"
-              class="gallery-media gallery-video-placeholder"
-              aria-hidden="true"
-            >
-              <span class="gallery-video-ph-icon">▶</span>
-            </div>
-            <!-- 封面缺失占位（文件已删或路径错误时不显示重复标题） -->
-            <div
-              v-if="coverFailedIds.has(album.id)"
-              class="gallery-media gallery-cover-missing"
-              aria-hidden="true"
-            >
-              <span>暂无图片</span>
-            </div>
-            <img
-              v-else-if="!gridCoverIsVideo(album)"
-              class="gallery-media"
-              :src="shouldLoadCover(album) ? coverThumbUrl(album.cover) : undefined"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              @load="markLandscapeIfNeeded($event, 'cover-' + album.id)"
-              @error="onCoverImgError($event, album)"
-            />
-            <span v-if="album.hasVideo" class="video-badge">▶ 含视频</span>
-            <!-- 穿戴甲贴手角标：戴手仅看款式，常驻左上角 -->
-            <div v-if="album.stylePreview" class="style-preview-badge">
-              <span class="spb-en">{{ STYLE_PREVIEW_LABEL.badgeEn }}</span>
-              <span class="spb-zh">{{ STYLE_PREVIEW_LABEL.badgeZh }}</span>
-            </div>
-            <div class="gallery-overlay">
-              <span class="gallery-cat">{{ album.category }}</span>
-              <h3 class="gallery-title">{{ album.title }}</h3>
-              <span class="gallery-hint">点击查看详情</span>
-            </div>
-            <!-- 本地 dev：右下角删除（无需先展开管理面板） -->
-            <button
-              v-if="canManage"
-              type="button"
-              class="gallery-delete-btn"
-              :disabled="deletingAlbumId === album.id"
-              aria-label="删除款式"
-              @click.stop="deleteAlbumFromGrid(album)"
-            >
-              {{ deletingAlbumId === album.id ? '删除中…' : '删除' }}
-            </button>
-          </div>
-        </figure>
+          :album="album"
+          :can-manage="canManage"
+          :deleting-album-id="deletingAlbumId"
+          :cover-failed="coverFailedIds.has(album.id)"
+          :load-cover="shouldLoadCover(album)"
+          :grid-cover-is-video="gridCoverIsVideo"
+          :is-landscape="isLandscape"
+          :is-cover-landscape-video="isCoverLandscapeVideo"
+          @open="openAlbum(album)"
+          @delete="deleteAlbumFromGrid(album)"
+          @cover-load="markLandscapeIfNeeded($event, 'cover-' + album.id)"
+          @cover-error="onCoverImgError($event, album)"
+        />
       </div>
     </div>
 
@@ -732,30 +738,61 @@ async function deleteAlbumFromGrid(album) {
   color: var(--color-white);
 }
 
+.gallery-latest-block {
+  margin-bottom: 28px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(201, 168, 124, 0.35);
+}
+
+.gallery-latest-header {
+  margin-bottom: 16px;
+}
+
+.gallery-latest-label {
+  display: inline-block;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
+
+.gallery-latest-title {
+  margin: 0 0 6px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.gallery-latest-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
 }
 
-.gallery-item {
+.gallery-grid :deep(.gallery-item) {
   margin: 0;
   border-radius: var(--radius-md);
   overflow: hidden;
 }
 
-.gallery-item.is-clickable {
+.gallery-grid :deep(.gallery-item.is-clickable) {
   cursor: pointer;
 }
 
-.gallery-img-wrap {
+.gallery-grid :deep(.gallery-img-wrap) {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-md);
   aspect-ratio: 4 / 5;
 }
 
-.gallery-img-wrap img {
+.gallery-grid :deep(.gallery-img-wrap img) {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -763,7 +800,7 @@ async function deleteAlbumFromGrid(album) {
 }
 
 /* 纯视频相册网格占位：不请求 mp4，仅显示播放图标 */
-.gallery-video-placeholder {
+.gallery-grid :deep(.gallery-video-placeholder) {
   width: 100%;
   height: 100%;
   display: flex;
@@ -772,14 +809,14 @@ async function deleteAlbumFromGrid(album) {
   background: linear-gradient(145deg, #f5ebe0 0%, #e8d5c4 100%);
 }
 
-.gallery-video-ph-icon {
+.gallery-grid :deep(.gallery-video-ph-icon) {
   font-size: 2.5rem;
   color: rgba(120, 80, 50, 0.55);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* 封面文件缺失时的占位（避免 alt 文字顶在卡片上方） */
-.gallery-cover-missing {
+.gallery-grid :deep(.gallery-cover-missing) {
   width: 100%;
   height: 100%;
   display: flex;
@@ -792,7 +829,7 @@ async function deleteAlbumFromGrid(album) {
 }
 
 /* 视频封面与图片同等裁切展示 */
-.gallery-img-wrap video.gallery-media {
+.gallery-grid :deep(.gallery-img-wrap video.gallery-media) {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -801,7 +838,7 @@ async function deleteAlbumFromGrid(album) {
 }
 
 /* 横屏封面/图片：旋转 90° 后按高度铺满竖向卡片 */
-.gallery-img-wrap.is-landscape .gallery-media {
+.gallery-grid :deep(.gallery-img-wrap.is-landscape .gallery-media) {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -812,7 +849,7 @@ async function deleteAlbumFromGrid(album) {
 }
 
 /* 横屏视频封面：不旋转，居中完整展示 */
-.gallery-img-wrap.is-landscape-video .gallery-media {
+.gallery-grid :deep(.gallery-img-wrap.is-landscape-video .gallery-media) {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -823,19 +860,19 @@ async function deleteAlbumFromGrid(album) {
   transform: translate(-50%, -50%);
 }
 
-.gallery-item:hover .gallery-img-wrap:not(.is-landscape):not(.is-landscape-video) .gallery-media {
+.gallery-grid :deep(.gallery-item:hover .gallery-img-wrap:not(.is-landscape):not(.is-landscape-video) .gallery-media) {
   transform: scale(1.06);
 }
 
-.gallery-item:hover .gallery-img-wrap.is-landscape .gallery-media {
+.gallery-grid :deep(.gallery-item:hover .gallery-img-wrap.is-landscape .gallery-media) {
   transform: translate(-50%, -50%) rotate(90deg) scale(1.06);
 }
 
-.gallery-item:hover .gallery-img-wrap.is-landscape-video .gallery-media {
+.gallery-grid :deep(.gallery-item:hover .gallery-img-wrap.is-landscape-video .gallery-media) {
   transform: translate(-50%, -50%) scale(1.06);
 }
 
-.video-badge {
+.gallery-grid :deep(.video-badge) {
   position: absolute;
   top: 12px;
   right: 12px;
@@ -849,7 +886,7 @@ async function deleteAlbumFromGrid(album) {
 }
 
 /* 穿戴甲贴手角标：毛玻璃 + 金色细线，常驻封面左上角 */
-.style-preview-badge {
+.gallery-grid :deep(.style-preview-badge) {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -865,14 +902,14 @@ async function deleteAlbumFromGrid(album) {
   pointer-events: none;
 }
 
-.spb-en {
+.gallery-grid :deep(.spb-en) {
   font-size: 0.58rem;
   letter-spacing: 0.2em;
   color: rgba(201, 168, 124, 0.95);
   line-height: 1.3;
 }
 
-.spb-zh {
+.gallery-grid :deep(.spb-zh) {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.92);
@@ -925,7 +962,7 @@ async function deleteAlbumFromGrid(album) {
   color: rgba(255, 255, 255, 0.88);
 }
 
-.gallery-overlay {
+.gallery-grid :deep(.gallery-overlay) {
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(61, 44, 46, 0.75) 0%, transparent 60%);
@@ -938,32 +975,47 @@ async function deleteAlbumFromGrid(album) {
   pointer-events: none;
 }
 
-.gallery-item:hover .gallery-overlay {
+.gallery-grid :deep(.gallery-item:hover .gallery-overlay) {
   opacity: 1;
 }
 
-.gallery-cat {
+.gallery-grid :deep(.gallery-cat) {
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   color: var(--color-accent);
   text-transform: uppercase;
 }
 
-.gallery-title {
+.gallery-grid :deep(.gallery-title) {
   font-family: var(--font-display);
   font-size: 1.25rem;
   color: var(--color-white);
   margin-top: 4px;
 }
 
-.gallery-hint {
+.gallery-grid :deep(.gallery-hint) {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.85);
   margin-top: 8px;
 }
 
+.gallery-grid :deep(.latest-style-badge) {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(135deg, #e91e8c, #ff6b9d);
+  box-shadow: 0 2px 8px rgba(233, 30, 140, 0.35);
+}
+
 /* 本地 dev：卡片右下角删除，常驻可见 */
-.gallery-delete-btn {
+.gallery-grid :deep(.gallery-delete-btn) {
   position: absolute;
   right: 10px;
   bottom: 10px;

@@ -1,16 +1,24 @@
 /**
- * 作品集数据：本地 dev / 线上店主登录后可热更新
+ * 作品集数据：本地 dev / 线上店主登录后可热更新；顾客端 revision 近实时轮询
  */
 import { shallowRef } from 'vue'
 import { galleryAlbums as staticAlbums } from '../data/galleryAlbums.js'
 import { getGithubToken, isOnlineAdminMode } from './useAdminAuth.js'
 import { requestListAlbums, requestListCategories } from './useGalleryAdminApi.js'
-import { fetchGalleryAlbumsFromRepo, fetchPublicGalleryAlbums } from '../utils/githubContents.js'
+import {
+  fetchGalleryAlbumsFromRepo,
+  fetchGalleryRevision,
+  fetchPublicGalleryAlbums,
+} from '../utils/githubContents.js'
 import { scanAlbumsFromPublicRepo } from '../utils/galleryRepoScan.js'
 
 const albumsRef = shallowRef(staticAlbums)
 const categoryOptionsRef = shallowRef([])
+// 「最新款式」区块用的 id 列表（与 public/gallery-revision.json 同步）
+const latestAlbumIdsRef = shallowRef([])
 const isDev = import.meta.env.DEV
+// 顾客端上次见到的 revision，未变则跳过拉完整 galleryAlbums.js
+let lastCustomerRev = null
 
 // 仅 dev 或店主已登录时热更新
 function canHotReload() {
@@ -19,17 +27,36 @@ function canHotReload() {
 }
 
 export function useGalleryAlbums() {
-  // 顾客扫码：从 GitHub 拉最新 galleryAlbums.js（微信内不能用 dynamic import）
-  async function refreshCustomerAlbums() {
-    if (isDev || !isOnlineAdminMode() || getGithubToken()) return false
+  // 顾客：先读 revision（约 200B），有变化再拉完整列表
+  async function tickCustomerGallery() {
+    if (isDev || !isOnlineAdminMode() || getGithubToken()) return { changed: false }
     try {
+      const revData = await fetchGalleryRevision()
+      latestAlbumIdsRef.value = [...revData.latestIds]
+      if (lastCustomerRev !== null && revData.rev === lastCustomerRev) {
+        return { changed: false }
+      }
+      lastCustomerRev = revData.rev
       const list = await fetchPublicGalleryAlbums()
       albumsRef.value = [...list]
-      return true
+      return { changed: true }
     } catch {
-      /* 保留打包静态列表 */
-      return false
+      if (lastCustomerRev !== null) return { changed: false }
+      try {
+        const list = await fetchPublicGalleryAlbums()
+        albumsRef.value = [...list]
+        lastCustomerRev = 0
+        return { changed: true }
+      } catch {
+        return { changed: false }
+      }
     }
+  }
+
+  // 强制全量刷新（如从后台返回页面）
+  async function refreshCustomerAlbums() {
+    lastCustomerRev = null
+    return tickCustomerGallery().then((r) => r.changed)
   }
 
   async function reloadCategories() {
@@ -60,7 +87,6 @@ export function useGalleryAlbums() {
       albumsRef.value = [...(data.albums || [])]
       return
     }
-    // 店主线上：先 raw 秒开，再后台扫 public 补全新增
     if (isOnlineAdminMode() && getGithubToken()) {
       try {
         const quick = await fetchGalleryAlbumsFromRepo()
@@ -82,9 +108,11 @@ export function useGalleryAlbums() {
   return {
     albums: albumsRef,
     categoryOptions: categoryOptionsRef,
+    latestAlbumIds: latestAlbumIdsRef,
     reloadAlbums,
     reloadCategories,
     refreshCustomerAlbums,
+    tickCustomerGallery,
     isDev,
   }
 }

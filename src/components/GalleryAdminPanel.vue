@@ -155,7 +155,7 @@ async function submitAdd() {
       stylePreview: addStylePreview.value,
       files,
     })
-    message.value = `已添加款式：${data.album?.title || data.albumId}，本页已更新；顾客重新打开页面约半分钟内同步`
+    message.value = `已添加款式：${data.album?.title || data.albumId}，已置顶「最新款式」；顾客约 3～10 秒内可见`
     addTitle.value = ''
     addStylePreview.value = false
     if (input) input.value = ''

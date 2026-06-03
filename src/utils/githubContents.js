@@ -230,27 +230,42 @@ function parseGalleryAlbumsFromJs(text) {
   throw new Error('作品集文件不完整')
 }
 
-// 从 CDN/raw 拉取 galleryAlbums.js（无需登录，给顾客扫码用）
-export async function fetchPublicGalleryAlbums() {
+// 按分支尝试多个 CDN/raw URL
+async function fetchTextFromRepo(relativePath) {
   if (!REPO) throw new Error('未配置线上仓库')
   const branches = [PREFERRED_BRANCH, 'master', 'main']
   for (const branch of branches) {
     const urls = [
-      `https://cdn.jsdelivr.net/gh/${REPO}@${branch}/src/data/galleryAlbums.js`,
-      `https://raw.githubusercontent.com/${REPO}/${branch}/src/data/galleryAlbums.js`,
+      `https://cdn.jsdelivr.net/gh/${REPO}@${branch}/${relativePath}`,
+      `https://raw.githubusercontent.com/${REPO}/${branch}/${relativePath}`,
     ]
     for (const base of urls) {
       try {
         const res = await fetch(`${base}?t=${Date.now()}`)
         if (!res.ok) continue
-        const text = await res.text()
-        return [...parseGalleryAlbumsFromJs(text)]
+        return await res.text()
       } catch {
         /* 换下一个 URL */
       }
     }
   }
-  throw new Error('无法加载最新作品集')
+  throw new Error(`无法加载 ${relativePath}`)
+}
+
+// 轻量 revision（顾客每几秒轮询，有变化再拉完整列表）
+export async function fetchGalleryRevision() {
+  const text = await fetchTextFromRepo('public/gallery-revision.json')
+  const data = JSON.parse(text)
+  return {
+    rev: data.rev ?? 0,
+    latestIds: Array.isArray(data.latestIds) ? data.latestIds : [],
+  }
+}
+
+// 从 CDN/raw 拉取 galleryAlbums.js（无需登录，给顾客扫码用）
+export async function fetchPublicGalleryAlbums() {
+  const text = await fetchTextFromRepo('src/data/galleryAlbums.js')
+  return [...parseGalleryAlbumsFromJs(text)]
 }
 
 // 从 raw 拉取 galleryAlbums.js 并解析（店主快速拉列表）
