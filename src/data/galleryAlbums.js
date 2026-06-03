@@ -52,6 +52,28 @@ export const galleryAlbums = [
     ],
   },
   {
+    id: 'caihui-c5',
+    title: '贴纸彩绘 5',
+    category: '彩绘',
+    cover: './caihui/c5/Camera_XHS_1780448691814.jpg',
+    hasVideo: false,
+    stylePreview: true,
+    media: [
+      { type: 'image', src: './caihui/c5/Camera_XHS_1780448691814.jpg' },
+    ],
+  },
+  {
+    id: 'caihui-c6',
+    title: '贴纸彩绘 6',
+    category: '彩绘',
+    cover: './caihui/c6/Camera_XHS_1780448691814.jpg',
+    hasVideo: false,
+    stylePreview: true,
+    media: [
+      { type: 'image', src: './caihui/c6/Camera_XHS_1780448691814.jpg' },
+    ],
+  },
+  {
     id: 'fashi-f1',
     title: '法式经典',
     category: '法式',
