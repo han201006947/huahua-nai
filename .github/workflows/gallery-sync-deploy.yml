@@ -8,6 +8,8 @@ on:
       - 'src/**'
       - 'scripts/inject-site-url.mjs'
       - 'scripts/fix-dist-html.ps1'
+      - 'scripts/fix-dist-html.mjs'
+      - 'scripts/write-deploy-config-ci.mjs'
       - 'scripts/optimize-dist-images.mjs'
       - 'vite.config.js'
       - 'index.html'
@@ -45,9 +47,12 @@ jobs:
       - name: Push sync commit
         run: git push
 
+      - name: Write deploy.config for CI
+        run: node scripts/write-deploy-config-ci.mjs
+
       - name: Build and deploy gh-pages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm run build
+          npm run build:ci
           npx gh-pages -d dist -f
