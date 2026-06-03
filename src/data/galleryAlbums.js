@@ -52,6 +52,16 @@ export const galleryAlbums = [
     ],
   },
   {
+    id: 'caihui-c5',
+    title: '贴纸彩绘 5',
+    category: '彩绘',
+    cover: './caihui/c5/1780283293071.png',
+    hasVideo: false,
+    media: [
+      { type: 'image', src: './caihui/c5/1780283293071.png' },
+    ],
+  },
+  {
     id: 'fashi-f1',
     title: '法式经典',
     category: '法式',
@@ -245,16 +255,6 @@ export const galleryAlbums = [
     videoOnly: true,
     media: [
       { type: 'video', src: './zhuti/z2-jiehun.mp4' },
-    ],
-  },
-  {
-    id: 'caihui-c5',
-    title: '贴纸彩绘 c5',
-    category: '彩绘',
-    cover: 'blob:https://han201006947.github.io/2105b47d-fa8c-4211-9f89-63dce42189a5',
-    hasVideo: false,
-    media: [
-      { type: 'image', src: 'blob:https://han201006947.github.io/2105b47d-fa8c-4211-9f89-63dce42189a5' },
     ],
   },
 ]
