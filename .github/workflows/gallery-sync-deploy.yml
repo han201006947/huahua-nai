@@ -5,10 +5,13 @@ on:
     branches: [master, main]
     paths:
       - 'public/**'
-      - 'public/gallery-revision.json'
-      - 'src/data/galleryAlbums.js'
-      - 'src/data/galleryCategories.custom.json'
-      - 'src/data/galleryAlbums.overrides.js'
+      - 'src/**'
+      - 'scripts/inject-site-url.mjs'
+      - 'scripts/fix-dist-html.ps1'
+      - 'scripts/optimize-dist-images.mjs'
+      - 'vite.config.js'
+      - 'index.html'
+      - '.github/workflows/gallery-sync-deploy.yml'
 
 permissions:
   contents: write
