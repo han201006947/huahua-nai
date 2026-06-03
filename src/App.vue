@@ -13,13 +13,14 @@ const AboutSection = defineAsyncComponent(() => import('./components/AboutSectio
 
 // 扫码登录或直达 #gallery 时立刻挂载作品集，避免 hash 锚点找不到节点
 function shouldMountGalleryImmediately() {
-  // 微信扫码链接带 #gallery，若懒加载会导致锚点无效、看起来像「无内容」
   if (typeof window === 'undefined') return false
   if (window.location.hash.includes('gallery')) return true
-  return new URLSearchParams(window.location.search).has('adminLogin')
+  if (new URLSearchParams(window.location.search).has('adminLogin')) return true
+  // 线上顾客/店主扫码：作品集与顾客一致，立即挂载避免等 idle 才出现
+  return typeof __GITHUB_REPO__ !== 'undefined' && Boolean(__GITHUB_REPO__)
 }
 
-// 作品集/关于我们是否已挂载（默认延迟，扫码场景立即 true）
+// 作品集/关于我们：线上立即挂载，离线包可略延迟
 const showHeavySections = ref(shouldMountGalleryImmediately())
 let belowFoldObserver = null
 

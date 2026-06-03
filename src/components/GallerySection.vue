@@ -20,7 +20,7 @@ import { notifyGallerySync, useGallerySyncListener } from '../composables/useGal
 import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
-const { albums, categoryOptions, latestAlbumIds, reloadAlbums, reloadCategories, refreshCustomerAlbums, tickCustomerGallery, isDev } = useGalleryAlbums()
+const { albums, categoryOptions, latestAlbumIds, reloadCategories, refreshOnlineGallery, tickOnlineGallery, isDev } = useGalleryAlbums()
 
 // 店主 session（扫码登录；main.js 已提前 initAdminAuth）
 const { isAdminLoggedIn, isOnlineAdminMode, isOwnerGalleryPreview } = useAdminAuth()
@@ -134,12 +134,8 @@ const latestDisplayAlbums = computed(() => {
   return list
 })
 
-// 主网格：排除已在「最新款式」区展示的，避免重复
-const mainGridAlbums = computed(() => {
-  const latestSet = new Set(latestDisplayAlbums.value.map((a) => a.id))
-  if (!latestSet.size) return filteredAlbums.value
-  return filteredAlbums.value.filter((a) => !latestSet.has(a.id))
-})
+// 主网格：与以前一样展示全部款式（最新款在上方区块会再显示一次）
+const mainGridAlbums = computed(() => filteredAlbums.value)
 
 // 是否展示最新区块
 const showLatestSection = computed(() => latestDisplayAlbums.value.length > 0)
@@ -149,10 +145,10 @@ function gridCoverIsVideo(album) {
   return /\.(mp4|webm|mov)$/i.test(album.cover || '')
 }
 
-// 相册封面缩略图是否应开始加载（店主登录后直接加载，避免懒加载空白）
+// 封面懒加载：顾客与店主一致，先显示打包列表再后台同步
 function shouldLoadCover(album) {
   if (gridCoverIsVideo(album)) return false
-  if (isDev || isAdminLoggedIn.value) return true
+  if (isDev) return true
   return visibleAlbumIds.value.has(album.id)
 }
 
@@ -290,11 +286,11 @@ function bumpGalleryMediaBust() {
   }
 }
 
-// 顾客端同步成功后刷新网格与懒加载
-async function applyCustomerGallerySync(force = false) {
+// 线上同步成功后刷新网格（不阻塞首屏，先显示打包静态列表）
+async function applyOnlineGallerySync(force = false) {
   const result = force
-    ? { changed: await refreshCustomerAlbums() }
-    : await tickCustomerGallery()
+    ? { changed: await refreshOnlineGallery() }
+    : await tickOnlineGallery()
   if (result.changed) {
     galleryListKey.value += 1
     coverFailedIds.value = new Set()
@@ -303,23 +299,24 @@ async function applyCustomerGallerySync(force = false) {
   }
 }
 
-// 顾客从其它 App 返回时拉最新列表
-async function onCustomerVisibilityRefresh() {
+// 从后台返回时拉最新列表
+async function onVisibilityGalleryRefresh() {
   if (document.visibilityState !== 'visible') return
-  await applyCustomerGallerySync(true)
+  await applyOnlineGallerySync(true)
 }
 
-// 顾客页每 3 秒轮询 revision（有变化才拉完整列表，近实时）
-let customerPollTimer = null
+// 线上每 3 秒轮询 revision（顾客与店主同一数据源）
+let onlinePollTimer = null
 
-onMounted(async () => {
+onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-  if (isOnlineAdminMode() && !isAdminLoggedIn.value) {
-    await applyCustomerGallerySync(true)
-    document.addEventListener('visibilitychange', onCustomerVisibilityRefresh)
-    customerPollTimer = window.setInterval(() => {
+  if (isOnlineAdminMode()) {
+    // 不 await：首屏立刻用打包数据，后台再同步 GitHub
+    void applyOnlineGallerySync(true)
+    document.addEventListener('visibilitychange', onVisibilityGalleryRefresh)
+    onlinePollTimer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return
-      applyCustomerGallerySync(false)
+      void applyOnlineGallerySync(false)
     }, 3000)
   }
   // dev 删款 reload 后滚回作品集区域
@@ -334,20 +331,20 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
-  document.removeEventListener('visibilitychange', onCustomerVisibilityRefresh)
-  if (customerPollTimer) window.clearInterval(customerPollTimer)
+  document.removeEventListener('visibilitychange', onVisibilityGalleryRefresh)
+  if (onlinePollTimer) window.clearInterval(onlinePollTimer)
   galleryObserver?.disconnect()
   unlockScroll()
 })
 
-// 店主登录完成后（含扫码后 initAdminAuth）再拉管理数据；顾客不请求 GitHub
+// 店主登录后只展开管理面板；列表与顾客走同一套 tickOnlineGallery
 watch(
   isAdminLoggedIn,
   (loggedIn) => {
     if (!loggedIn || (!isDev && !isOnlineAdminMode())) return
     adminPanelOpen.value = true
     reloadCategories().catch(() => {})
-    reloadAlbums().catch(() => {})
+    void applyOnlineGallerySync(true)
     if (window.location.hash.includes('gallery')) {
       nextTick(() => {
         document.getElementById('gallery')?.scrollIntoView({ behavior: 'instant', block: 'start' })
@@ -526,7 +523,7 @@ async function deleteAlbumFromGrid(album) {
         <div class="gallery-latest-header">
           <span class="gallery-latest-label">NEW</span>
           <h3 class="gallery-latest-title">最新款式</h3>
-          <p class="gallery-latest-desc">店主刚上传的新款，约几秒内同步到这里</p>
+          <p class="gallery-latest-desc">店主新上传的款式会同步显示在这里</p>
         </div>
         <div class="gallery-grid gallery-grid--latest">
           <GalleryAlbumCard

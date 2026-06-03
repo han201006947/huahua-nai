@@ -268,11 +268,8 @@ export async function fetchPublicGalleryAlbums() {
   return [...parseGalleryAlbumsFromJs(text)]
 }
 
-// 从 raw 拉取 galleryAlbums.js 并解析（店主快速拉列表）
+// 从 raw 拉取 galleryAlbums.js（顾客与店主展示共用，无需 ensureSourceBranch）
 export async function fetchGalleryAlbumsFromRepo() {
-  if (getGithubToken()) {
-    await ensureSourceBranch()
-  }
   return fetchPublicGalleryAlbums()
 }
 
