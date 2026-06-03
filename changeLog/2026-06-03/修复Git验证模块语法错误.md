@@ -10,6 +10,6 @@ Run #32「Build site」约 1 秒失败：`githubWriteVerify.js` 在合并 `verif
 
 ## Git 提交
 
-- **是否已提交**：待回填
-- **本地 commit**：待回填
-- **提交说明**：待回填
+- **是否已提交**：是
+- **本地 commit**：d0ad3e7（nail-beauty / master / 未 push）
+- **提交说明**：fix: 修复 githubWriteVerify 语法错误致 Actions 构建失败
