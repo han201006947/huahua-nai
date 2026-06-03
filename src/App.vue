@@ -6,41 +6,60 @@ import HeroSection from './components/HeroSection.vue'
 import ServiceSection from './components/ServiceSection.vue'
 import ContactSection from './components/ContactSection.vue'
 import AppFooter from './components/AppFooter.vue'
+// 作品集进主包，避免扫码后再等异步 chunk
+import GallerySection from './components/GallerySection.vue'
 
-// 懒挂载：作品集/关于我们延后，扫码后先渲染价目与导航
-const GallerySection = defineAsyncComponent(() => import('./components/GallerySection.vue'))
+// 关于我们仍懒加载，减轻首包解析
 const AboutSection = defineAsyncComponent(() => import('./components/AboutSection.vue'))
 
-// 扫码登录或直达 #gallery 时立刻挂载作品集，避免 hash 锚点找不到节点
+// 店主扫码 #gallery 或 adminLogin：立刻挂载作品集
 function shouldMountGalleryImmediately() {
   if (typeof window === 'undefined') return false
   if (window.location.hash.includes('gallery')) return true
-  if (new URLSearchParams(window.location.search).has('adminLogin')) return true
-  // 线上顾客/店主扫码：作品集与顾客一致，立即挂载避免等 idle 才出现
-  return typeof __GITHUB_REPO__ !== 'undefined' && Boolean(__GITHUB_REPO__)
+  return new URLSearchParams(window.location.search).has('adminLogin')
 }
 
-// 作品集/关于我们：线上立即挂载，离线包可略延迟
-const showHeavySections = ref(shouldMountGalleryImmediately())
+const showGallery = ref(shouldMountGalleryImmediately())
+const showAbout = ref(false)
 let belowFoldObserver = null
 
+function mountGallery() {
+  showGallery.value = true
+}
+
 onMounted(() => {
-  const mountHeavy = () => {
-    showHeavySections.value = true
+  window.addEventListener('mount-gallery', mountGallery)
+
+  if (!showGallery.value) {
+    const isOnline = typeof __GITHUB_REPO__ !== 'undefined' && Boolean(__GITHUB_REPO__)
+    if (isOnline) {
+      // 顾客扫码首页：先出 Hero/价目，短延迟再挂作品集
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(mountGallery, { timeout: 700 })
+      } else {
+        setTimeout(mountGallery, 400)
+      }
+    } else if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(mountGallery, { timeout: 400 })
+    } else {
+      setTimeout(mountGallery, 200)
+    }
   }
-  // 已因扫码/锚点提前挂载则不再延迟
-  if (showHeavySections.value) return
+
+  const mountAbout = () => {
+    showAbout.value = true
+  }
   if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(mountHeavy, { timeout: 400 })
+    requestIdleCallback(mountAbout, { timeout: 1200 })
   } else {
-    setTimeout(mountHeavy, 200)
+    setTimeout(mountAbout, 800)
   }
 
   const sentinel = document.getElementById('below-fold-sentinel')
   if (sentinel && typeof IntersectionObserver !== 'undefined') {
     belowFoldObserver = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) showHeavySections.value = true
+        if (entry.isIntersecting) mountGallery()
       },
       { rootMargin: '120px' }
     )
@@ -49,6 +68,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('mount-gallery', mountGallery)
   belowFoldObserver?.disconnect()
 })
 </script>
@@ -60,8 +80,8 @@ onUnmounted(() => {
     <HeroSection />
     <ServiceSection />
     <div id="below-fold-sentinel" class="below-fold-sentinel" aria-hidden="true" />
-    <GallerySection v-if="showHeavySections" />
-    <AboutSection v-if="showHeavySections" />
+    <GallerySection v-if="showGallery" />
+    <AboutSection v-if="showAbout" />
     <ContactSection />
   </main>
   <AppFooter />

@@ -22,6 +22,8 @@ const deployCfg = loadJsonFile('deploy.config.json')
 const adminCfg = fs.existsSync(path.join(projectRoot, 'admin.config.json'))
   ? loadJsonFile('admin.config.json')
   : loadJsonFile('admin.config.example.json')
+// 构建时写入 revision 快照，首屏用打包数据、后台再比对是否需拉远程
+const galleryRevisionCfg = loadJsonFile('public/gallery-revision.json')
 const githubRepoMatch = (deployCfg.githubRepoUrl || '').match(/github\.com[/:]([^/]+)\/([^/.]+)/i)
 const githubRepo = githubRepoMatch ? `${githubRepoMatch[1]}/${githubRepoMatch[2]}` : ''
 
@@ -58,6 +60,11 @@ export default defineConfig(({ command }) => ({
     __GITHUB_REPO__: JSON.stringify(command === 'build' ? githubRepo : ''),
     __GITHUB_BRANCH__: JSON.stringify('master'),
     __ADMIN_PHONE__: JSON.stringify(String(adminCfg.adminPhone || '15235952769')),
+    // 与 public/gallery-revision.json 同步，扫码首屏即可显示「最新款式」
+    __GALLERY_BUILD_REV__: JSON.stringify(Number(galleryRevisionCfg.rev) || 0),
+    __GALLERY_BUILD_LATEST_IDS__: JSON.stringify(
+      Array.isArray(galleryRevisionCfg.latestIds) ? galleryRevisionCfg.latestIds : []
+    ),
   },
   build: {
     // 关闭 module 分包，便于 file:// 直接打开（Chrome / 手机浏览器）

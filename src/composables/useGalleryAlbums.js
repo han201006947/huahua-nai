@@ -7,15 +7,22 @@ import { getGithubToken, isOnlineAdminMode } from './useAdminAuth.js'
 import { requestListAlbums, requestListCategories } from './useGalleryAdminApi.js'
 import { fetchGalleryRevision, fetchPublicGalleryAlbums } from '../utils/githubContents.js'
 
+// 构建时注入的 revision 快照（与 deploy 时 public/gallery-revision.json 一致）
+const buildRev =
+  typeof __GALLERY_BUILD_REV__ !== 'undefined' ? Number(__GALLERY_BUILD_REV__) || 0 : 0
+const buildLatestIds =
+  typeof __GALLERY_BUILD_LATEST_IDS__ !== 'undefined' && Array.isArray(__GALLERY_BUILD_LATEST_IDS__)
+    ? [...__GALLERY_BUILD_LATEST_IDS__]
+    : []
+
 const albumsRef = shallowRef(staticAlbums)
 const categoryOptionsRef = shallowRef([])
-// 「最新款式」置顶 id（public/gallery-revision.json）
-const latestAlbumIdsRef = shallowRef([])
+// 「最新款式」：首屏用构建快照，后台 revision 有变再更新
+const latestAlbumIdsRef = shallowRef([...buildLatestIds])
 const isDev = import.meta.env.DEV
-// 线上上次见到的 revision，未变则可能跳过拉 galleryAlbums.js
-let lastOnlineRev = null
-// 上次 latestIds 快照（rev 异常时仍能触发补拉）
-let lastLatestIdsKey = ''
+// 与构建 revision 对齐，远程 rev 相同则跳过拉大文件
+let lastOnlineRev = buildRev || null
+let lastLatestIdsKey = buildLatestIds.join(',')
 
 // 店主增删后立刻更新置顶 id 与 revision（不必等轮询）
 export function patchOnlineGalleryMeta(meta = {}) {
@@ -33,6 +40,15 @@ function albumsMissingLatest(ids, list) {
   return ids.some((id) => !set.has(id))
 }
 
+// 列表 id 序列相同则不必重绘网格（减少扫码后闪烁）
+function albumsListSame(a, b) {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].id !== b[i].id) return false
+  }
+  return true
+}
+
 // 仅 dev 或店主已登录时走管理 API 热更新分类
 function canHotReload() {
   if (isDev) return true
@@ -40,7 +56,7 @@ function canHotReload() {
 }
 
 export function useGalleryAlbums() {
-  // 线上统一：顾客与店主读同一份 galleryAlbums.js + revision（内容一致）
+  // 线上：先比对轻量 revision，有变才拉 galleryAlbums.js
   async function tickOnlineGallery() {
     if (isDev || !isOnlineAdminMode()) return { changed: false }
     try {
@@ -50,20 +66,27 @@ export function useGalleryAlbums() {
       const revChanged = lastOnlineRev !== null && revData.rev !== lastOnlineRev
       const idsChanged = idsKey !== lastLatestIdsKey
       const missingLatest = albumsMissingLatest(revData.latestIds, albumsRef.value)
-      if (lastOnlineRev !== null && !revChanged && !idsChanged && !missingLatest) {
-        return { changed: false }
-      }
       lastOnlineRev = revData.rev
       lastLatestIdsKey = idsKey
+      if (!revChanged && !idsChanged && !missingLatest) {
+        return { changed: false }
+      }
       const list = await fetchPublicGalleryAlbums(revData.rev)
+      if (albumsListSame(albumsRef.value, list)) {
+        return { changed: false }
+      }
       albumsRef.value = [...list]
       return { changed: true }
     } catch {
       if (lastOnlineRev !== null) return { changed: false }
       try {
         const list = await fetchPublicGalleryAlbums()
+        if (albumsListSame(albumsRef.value, list)) {
+          lastOnlineRev = buildRev || 0
+          return { changed: false }
+        }
         albumsRef.value = [...list]
-        lastOnlineRev = 0
+        lastOnlineRev = buildRev || 0
         return { changed: true }
       } catch {
         return { changed: false }
@@ -105,7 +128,6 @@ export function useGalleryAlbums() {
       albumsRef.value = [...(data.albums || [])]
       return
     }
-    // 线上店主/顾客：与 tickOnlineGallery 同源，不再扫 public/（慢且易与顾客不一致）
     if (isOnlineAdminMode()) {
       lastOnlineRev = null
       await tickOnlineGallery()
@@ -124,7 +146,6 @@ export function useGalleryAlbums() {
     reloadCategories,
     refreshOnlineGallery,
     tickOnlineGallery,
-    // 兼容旧名
     refreshCustomerAlbums: refreshOnlineGallery,
     tickCustomerGallery: tickOnlineGallery,
     isDev,

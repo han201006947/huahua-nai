@@ -9,15 +9,28 @@ function goContact() {
   document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
 }
 
-// 滚动到作品集「最新款式」锚点（无新款时落在作品集顶部）
+// 滚动到作品集锚点（先触发挂载，再滚到目标）
+function scrollToGalleryAnchor(id) {
+  window.dispatchEvent(new CustomEvent('mount-gallery'))
+  const tryScroll = (left = 12) => {
+    const el = document.getElementById(id) || document.getElementById('gallery')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' })
+      return
+    }
+    if (left > 0) window.setTimeout(() => tryScroll(left - 1), 60)
+  }
+  tryScroll()
+}
+
+// 滚动到作品集「最新款式」
 function goLatest() {
-  const el = document.getElementById('gallery-latest') || document.getElementById('gallery')
-  el?.scrollIntoView({ behavior: 'smooth' })
+  scrollToGalleryAnchor('gallery-latest')
 }
 
 // 滚动到作品展示
 function goGallery() {
-  document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth' })
+  scrollToGalleryAnchor('gallery')
 }
 </script>
 

@@ -305,19 +305,36 @@ async function onVisibilityGalleryRefresh() {
   await applyOnlineGallerySync(true)
 }
 
-// 线上每 3 秒轮询 revision（顾客与店主同一数据源）
+// 线上后台同步：首屏只用打包数据，延迟再拉 GitHub（避免扫码卡住）
+const BG_SYNC_IDLE_MS = 4500
+const ONLINE_POLL_MS = 5000
 let onlinePollTimer = null
+let bgSyncScheduled = false
+
+// 首次同步与轮询（不阻塞渲染、不在 mount 立刻拉大文件）
+function scheduleBackgroundGallerySync() {
+  if (bgSyncScheduled || !isOnlineAdminMode()) return
+  bgSyncScheduled = true
+  const runFirst = () => {
+    void applyOnlineGallerySync(false)
+  }
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(runFirst, { timeout: BG_SYNC_IDLE_MS })
+  } else {
+    setTimeout(runFirst, BG_SYNC_IDLE_MS)
+  }
+  onlinePollTimer = window.setInterval(() => {
+    if (document.visibilityState !== 'visible') return
+    void applyOnlineGallerySync(false)
+  }, ONLINE_POLL_MS)
+}
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   if (isOnlineAdminMode()) {
-    // 不 await：首屏立刻用打包数据，后台再同步 GitHub
-    void applyOnlineGallerySync(true)
+    // 首屏静态列表 + 构建 revision；数秒后再后台对齐 master
+    scheduleBackgroundGallerySync()
     document.addEventListener('visibilitychange', onVisibilityGalleryRefresh)
-    onlinePollTimer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      void applyOnlineGallerySync(false)
-    }, 3000)
   }
   // dev 删款 reload 后滚回作品集区域
   if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {
@@ -344,7 +361,7 @@ watch(
     if (!loggedIn || (!isDev && !isOnlineAdminMode())) return
     adminPanelOpen.value = true
     reloadCategories().catch(() => {})
-    void applyOnlineGallerySync(true)
+    // 登录后不强制拉大文件，沿用延迟后台同步
     if (window.location.hash.includes('gallery')) {
       nextTick(() => {
         document.getElementById('gallery')?.scrollIntoView({ behavior: 'instant', block: 'start' })

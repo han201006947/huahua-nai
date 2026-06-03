@@ -56,6 +56,14 @@ function patchIndexHtml(cdnBase) {
       ].join('\n    ')
       html = html.replace('</head>', `    ${hints}\n  </head>`)
     }
+    // 预加载主脚本，缩短扫码白屏（路径在 fix-dist-html 中写入）
+    if (!html.includes('rel="preload" as="script"')) {
+      const jsMatch = html.match(/src="\.\/assets\/app\.js\?v=[^"]+"/)
+      if (jsMatch) {
+        const preloadJs = `<link rel="preload" as="script" href="${jsMatch[0].slice(5, -1)}">`
+        html = html.replace('</head>', `    ${preloadJs}\n  </head>`)
+      }
+    }
     console.log('>> CSS/JS 保留 github.io；价目图 preload 走 jsDelivr')
   }
 
