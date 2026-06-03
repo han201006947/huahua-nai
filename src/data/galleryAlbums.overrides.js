@@ -24,7 +24,4 @@ export const albumOverrides = {
   'zhuti-z2-jiehun': {
     title: '婚礼主题',
   },
-  'caihui-c5': {
-    stylePreview: true,
-  },
 }
