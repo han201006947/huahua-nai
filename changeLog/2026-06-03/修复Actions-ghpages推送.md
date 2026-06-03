@@ -25,6 +25,6 @@ push master → Actions **Gallery Sync and Deploy** 全绿 → 2～5 分钟后�
 
 ## Git 提交
 
-- **是否已提交**：待回填
-- **本地 commit**：待回填
-- **提交说明**：待回填
+- **是否已提交**：是
+- **本地 commit**：9c6fdb2（nail-beauty / master / 未 push）
+- **提交说明**：fix: Actions gh-pages 推送加 token 与大体积缓冲
