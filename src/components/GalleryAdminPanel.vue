@@ -156,7 +156,7 @@ async function submitAdd() {
     addStylePreview.value = false
     if (input) input.value = ''
     await refreshMeta()
-    emit('changed')
+    emit('changed', { albums: data.albums, album: data.album, category: data.category })
   } catch (e) {
     error.value = e.message || String(e)
   } finally {

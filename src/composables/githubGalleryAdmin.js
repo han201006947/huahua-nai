@@ -10,7 +10,7 @@ import {
   writeRepoBinary,
   writeRepoText,
 } from '../utils/githubContents.js'
-import { scanAlbumsFromPublicRepo } from '../utils/galleryRepoScan.js'
+import { scanAlbumsFromPublicRepo, scanAlbumsWithFallback, buildAlbumFromUpload } from '../utils/galleryRepoScan.js'
 import { getGithubToken } from './useAdminAuth.js'
 
 const CUSTOM_PATH = 'src/data/galleryCategories.custom.json'
@@ -201,8 +201,10 @@ export async function onlineAddAlbum(payload) {
   if (!Array.isArray(files) || !files.length) throw new Error('请至少上传一张图片或一个视频')
 
   const folderName = await nextFolderName(cat.dir, cat.folderPrefix)
+  const uploadedNames = []
   for (let i = 0; i < files.length; i += 1) {
     const safeName = sanitizeFileName(files[i].name, i)
+    uploadedNames.push(safeName)
     const repoPath = `public/${cat.dir}/${folderName}/${safeName}`
     await writeRepoBinary(repoPath, files[i].data, null, `feat: add ${repoPath}`)
   }
@@ -220,9 +222,10 @@ export async function onlineAddAlbum(payload) {
     await saveOverridesObject(overrides)
   }
 
-  const albums = await loadAlbumsForAdmin()
-  const album = albums.find((a) => a.id === albumId) || null
-  return { albumId, album, albums }
+  const optimistic = buildAlbumFromUpload(cat, folderName, uploadedNames, { title, stylePreview })
+  const albums = await scanAlbumsWithFallback(optimistic, albumId)
+  const album = albums.find((a) => a.id === albumId) || optimistic
+  return { albumId, album, albums, category: cat.category }
 }
 
 // 删除款式目录或文件

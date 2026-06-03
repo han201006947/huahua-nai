@@ -32,6 +32,34 @@ function toWebPath(categoryDir, ...parts) {
   return `./${categoryDir}/${parts.join('/')}`.replace(/\\/g, '/').replace(/\/+/g, '/')
 }
 
+// 由刚上传的文件名拼出一条相册（GitHub 列表有延迟时先乐观展示）
+export function buildAlbumFromUpload(cat, folderName, fileNames, opts = {}) {
+  const albumId = `${cat.key}-${folderName}`
+  const media = fileNames.map((name) => {
+    const isVid = VIDEO_EXT.test(name)
+    return {
+      type: isVid ? 'video' : 'image',
+      src: toWebPath(cat.dir, folderName, name),
+    }
+  })
+  const hasVideo = media.some((m) => m.type === 'video')
+  const videoOnly = media.length > 0 && media.every((m) => m.type === 'video')
+  const firstImage = media.find((m) => m.type === 'image')
+  const cover = firstImage ? firstImage.src : media[0]?.src
+  const album = {
+    id: albumId,
+    title: opts.title || `${cat.titlePrefix} ${folderName}`,
+    category: cat.category,
+    cover,
+    hasVideo,
+    media,
+  }
+  if (opts.stylePreview) album.stylePreview = true
+  if (!firstImage && media[0]?.type === 'video') album.coverVideo = cover
+  if (videoOnly) album.videoOnly = true
+  return album
+}
+
 // 由文件名列表拼 media 数组
 function buildMediaFromFiles(files, categoryDir, relPrefix) {
   const images = files.filter(isImage).sort(naturalCompare)
@@ -167,4 +195,20 @@ export async function scanAlbumsFromPublicRepo() {
     all.push(...(await scanCategory(cat, overrides)))
   }
   return all
+}
+
+// 扫描 GitHub；若新款式尚未出现在目录列表中则并入 fallback（刚上传常见）
+export async function scanAlbumsWithFallback(fallbackAlbum, expectAlbumId) {
+  let albums = []
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      albums = await scanAlbumsFromPublicRepo()
+      if (albums.some((a) => a.id === expectAlbumId)) return albums
+    } catch {
+      /* GitHub 列表/API 偶发失败时重试 */
+    }
+    if (i < 2) await new Promise((r) => setTimeout(r, 1200))
+  }
+  if (albums.some((a) => a.id === expectAlbumId)) return albums
+  return [...albums, fallbackAlbum]
 }

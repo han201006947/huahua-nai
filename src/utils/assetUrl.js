@@ -10,10 +10,10 @@ const buildVer = typeof __SITE_BUILD_VER__ !== 'undefined' ? __SITE_BUILD_VER__ 
 // 仓库名，店主预览 master 上 public/ 用
 const githubRepo = typeof __GITHUB_REPO__ !== 'undefined' ? __GITHUB_REPO__ : ''
 
-// 店主登录后：图片走 master/public（上传后立即可见，不必等 gh-pages deploy）
+// 店主登录后：走 raw.githubusercontent（比 jsDelivr 更快见到刚上传的图）
 function withMasterPreview(rel) {
   if (!githubRepo) return `./${rel}`
-  return `https://cdn.jsdelivr.net/gh/${githubRepo}@master/public/${rel}`
+  return `https://raw.githubusercontent.com/${githubRepo}/master/public/${rel}`
 }
 
 // 拼接最终 URL（CDN 或相对路径 + 可选 ?v=）
@@ -37,6 +37,10 @@ export function coverThumbUrl(src) {
   if (/^https?:\/\//i.test(src)) return src
   if (/\.(mp4|webm|mov)$/i.test(src)) return src
   const rel = String(src).replace(/^\.\//, '').replace(/^\//, '')
+  // 店主预览 master 无 .thumb，直接用原图
+  if (isOwnerGalleryPreview()) {
+    return withMasterPreview(rel)
+  }
   // 开发态新增款式尚未 build，public 里没有 .thumb 文件
   if (import.meta.env.DEV) {
     return withBase(rel)

@@ -125,10 +125,10 @@ function gridCoverIsVideo(album) {
   return /\.(mp4|webm|mov)$/i.test(album.cover || '')
 }
 
-// 相册封面缩略图是否应开始加载（dev 下直接加载，避免懒加载导致空白）
+// 相册封面缩略图是否应开始加载（店主登录后直接加载，避免懒加载空白）
 function shouldLoadCover(album) {
   if (gridCoverIsVideo(album)) return false
-  if (isDev) return true
+  if (isDev || isAdminLoggedIn.value) return true
   return visibleAlbumIds.value.has(album.id)
 }
 
@@ -280,17 +280,25 @@ function syncActiveCategoryFilter() {
   if (!names.includes(activeCategory.value)) activeCategory.value = ''
 }
 
-// 本地管理增删后刷新列表、分类 Tab 与懒加载（fromBroadcast 避免广播死循环）
-async function onGalleryAdminChanged(fromBroadcast = false) {
+// 本地管理增删后刷新列表、分类 Tab 与懒加载（arg=true 为跨窗口广播；否则为 payload）
+async function onGalleryAdminChanged(arg) {
+  const fromBroadcast = arg === true
+  const payload = fromBroadcast ? null : arg
   if (activeAlbum.value) closeAlbum()
   if (lightboxSrc.value) closeLightbox()
   landscapeKeys.value = new Set()
   coverFailedIds.value = new Set()
   try {
-    await Promise.all([reloadAlbums(), reloadCategories()])
+    if (payload?.albums?.length) {
+      albums.value = [...payload.albums]
+      await reloadCategories()
+    } else {
+      await Promise.all([reloadAlbums(), reloadCategories()])
+    }
   } catch (e) {
     window.alert(e.message || String(e))
   }
+  if (payload?.category) activeCategory.value = payload.category
   syncActiveCategoryFilter()
   galleryListKey.value += 1
   await nextTick()
