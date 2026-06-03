@@ -154,14 +154,14 @@ async function submitAdd() {
   busyAlbum.value = true
   try {
     const files = await filesFromInput(list)
-    message.value = '正在上传并同步线上，请稍候…'
+    message.value = '正在上传并验证 GitHub 写入，请稍候…'
     const data = await requestAddAlbum({
       categoryKey: addCategoryKey.value,
       title: addTitle.value.trim(),
       stylePreview: addStylePreview.value,
       files,
     })
-    message.value = `已添加款式：${data.album?.title || data.albumId}，已置顶「最新款式」；顾客约 3～10 秒内可见`
+    message.value = `已添加「${data.album?.title || data.albumId}」：GitHub 图片与列表已确认；顾客约 1～3 分钟同步`
     addTitle.value = ''
     addStylePreview.value = false
     if (input) input.value = ''
@@ -203,7 +203,7 @@ function handleLogout() {
 
     <div v-if="panelOpen" class="admin-panel">
       <p class="admin-tip">
-        已验证店主 <strong>15235952769</strong>。添加后下方作品集<strong>立即</strong>更新；顾客扫码约 1 分钟内同步。
+        已验证店主 <strong>15235952769</strong>。添加/删除会先写入 GitHub 并<strong>回读验证</strong>，成功后才更新下方列表；顾客扫码约 1～3 分钟同步。
         仅店主保存的登录二维码可进入此面板。
       </p>
 

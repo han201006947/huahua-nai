@@ -7,9 +7,18 @@ import {
   fetchGalleryAlbumsFromRepo,
   listRepoDir,
   readRepoText,
+  repoPathExists,
   writeRepoBinary,
   writeRepoText,
 } from '../utils/githubContents.js'
+import {
+  verifyAlbumAbsentFromGalleryJs,
+  verifyAlbumPresentInGalleryJs,
+  verifyAlbumPublicGone,
+  verifyCategoryPublicGone,
+  verifyLatestIdsForAlbum,
+  verifyRepoPathsPresent,
+} from '../utils/githubWriteVerify.js'
 import { scanAlbumsFromPublicRepo, scanAlbumsWithFallback, buildAlbumFromUpload, scanAlbumsAfterDelete, scanAlbumsAfterDeleteCategory } from '../utils/galleryRepoScan.js'
 import { getGithubToken } from './useAdminAuth.js'
 
@@ -191,19 +200,50 @@ export async function onlineAddCategory(payload) {
   return { category: entry, categories: await onlineListCategories() }
 }
 
-// 递归删除 GitHub 目录下所有文件
-async function deleteRepoDir(dirPath) {
+// 递归删除 GitHub 目录下所有文件（404 视为已删；其余错误向上抛）
+async function deleteRepoDirStrict(dirPath) {
   let entries = []
   try {
     entries = await listRepoDir(dirPath)
-  } catch {
-    return
+  } catch (e) {
+    if (/not found/i.test(String(e.message))) return
+    throw e
   }
   for (const entry of entries) {
     const p = `${dirPath}/${entry.name}`
-    if (entry.type === 'dir') await deleteRepoDir(p)
+    if (entry.type === 'dir') await deleteRepoDirStrict(p)
     else await deleteRepoFile(p, entry.sha, `chore: remove ${p}`)
   }
+}
+
+// 删除 public 内与款式 id 对应的图片/视频，并在 GitHub 上验证已消失
+async function deleteAlbumPublicAssets(cat, entryName, albumId) {
+  const parentPath = `public/${cat.dir}`
+  const folderPath = `${parentPath}/${entryName}`
+  let removed = 0
+
+  // 目录款式：public/caihui/c5/…
+  if (await repoPathExists(folderPath)) {
+    await deleteRepoDirStrict(folderPath)
+    removed += 1
+  }
+
+  // 单文件款式：public/caihui/c2.jpg 或同名文件
+  const entries = await listRepoDir(parentPath)
+  for (const entry of entries) {
+    const stem = entry.name.replace(/\.[^.]+$/, '')
+    if (entry.name !== entryName && stem !== entryName) continue
+    const p = `${parentPath}/${entry.name}`
+    if (entry.type === 'dir') await deleteRepoDirStrict(p)
+    else await deleteRepoFile(p, entry.sha, `chore: remove ${p}`)
+    removed += 1
+  }
+
+  if (removed === 0) {
+    throw new Error(`GitHub 上未找到款式「${albumId}」的图片，删除已取消`)
+  }
+
+  await verifyAlbumPublicGone(cat.dir, entryName)
 }
 
 // 删除自建分类
@@ -216,7 +256,8 @@ export async function onlineDeleteCategory(categoryKey) {
   if (idx < 0) throw new Error('仅可删除自建分类')
 
   const cat = custom[idx]
-  await deleteRepoDir(`public/${cat.dir}`)
+  await deleteRepoDirStrict(`public/${cat.dir}`)
+  await verifyCategoryPublicGone(cat.dir)
   custom.splice(idx, 1)
   await saveCustomCategories(custom)
 
@@ -317,14 +358,19 @@ export async function onlineAddAlbum(payload) {
 
   const folderName = await nextFolderName(cat.dir, cat.folderPrefix)
   const uploadedNames = []
+  const uploadedRepoPaths = []
   const previewUrls = {}
   for (let i = 0; i < files.length; i += 1) {
     const safeName = sanitizeFileName(files[i].name, i)
     uploadedNames.push(safeName)
     if (files[i].previewUrl) previewUrls[safeName] = files[i].previewUrl
     const repoPath = `public/${cat.dir}/${folderName}/${safeName}`
+    uploadedRepoPaths.push(repoPath)
     await writeRepoBinary(repoPath, files[i].data, null, `feat: add ${repoPath}`)
   }
+
+  // 确认图片/视频已出现在 GitHub，再改列表与 revision
+  await verifyRepoPathsPresent(uploadedRepoPaths)
 
   const albumId = `${cat.key}-${folderName}`
   const title = String(payload?.title || '').trim()
@@ -346,7 +392,9 @@ export async function onlineAddAlbum(payload) {
   })
   const albums = await scanAlbumsWithFallback(optimistic, albumId)
   await writeGalleryAlbumsJs(albums)
+  await verifyAlbumPresentInGalleryJs(albumId)
   const revision = await bumpLatestOnAdd(albumId)
+  await verifyLatestIdsForAlbum(albumId, true)
   const album = albums.find((a) => a.id === albumId) || optimistic
   return {
     albumId,
@@ -355,6 +403,7 @@ export async function onlineAddAlbum(payload) {
     category: cat.category,
     latestIds: revision.latestIds,
     rev: revision.rev,
+    gitVerified: true,
   }
 }
 
@@ -368,14 +417,8 @@ export async function onlineDeleteAlbum(albumId) {
   const cat = findCategoryByKey(catKey, custom)
   if (!cat) throw new Error('未找到相册分类')
 
-  const folderPath = `public/${cat.dir}/${entryName}`
-  try {
-    await deleteRepoDir(folderPath)
-  } catch {
-    const entries = await listRepoDir(`public/${cat.dir}`)
-    const hit = entries.find((e) => e.name.startsWith(entryName))
-    if (hit) await deleteRepoFile(`public/${cat.dir}/${hit.name}`, hit.sha, `chore: delete ${albumId}`)
-  }
+  // 先删 public 并验证，再改 galleryAlbums（避免列表没了图还在）
+  await deleteAlbumPublicAssets(cat, entryName, albumId)
 
   const overrides = await loadOverridesObject()
   if (overrides[albumId]) {
@@ -385,13 +428,16 @@ export async function onlineDeleteAlbum(albumId) {
 
   const albums = await scanAlbumsAfterDelete(albumId)
   await writeGalleryAlbumsJs(albums)
+  await verifyAlbumAbsentFromGalleryJs(albumId)
   const revision = await bumpLatestOnDelete(albumId)
+  await verifyLatestIdsForAlbum(albumId, false)
   return {
     albumId,
     albums,
     category: cat.category,
     latestIds: revision.latestIds,
     rev: revision.rev,
+    gitVerified: true,
   }
 }
 

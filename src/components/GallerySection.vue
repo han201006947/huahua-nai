@@ -429,17 +429,11 @@ async function onAlbumMediaPicked(event) {
   }
 }
 
-// 点击卡片右下角删除（店主登录后可见）
+// 点击卡片右下角删除（店主登录后可见；Git 验证成功后才从网格移除）
 async function deleteAlbumFromGrid(album) {
   if (!window.confirm(`确定删除「${album.title}」？\n将删除 public 内对应图片/视频，且不可恢复。`)) return
   const removedId = album.id
   deletingAlbumId.value = removedId
-  const snapshot = [...albums.value]
-  // 乐观更新：确认后立刻从网格移除，避免留空白卡片
-  albums.value = snapshot.filter((a) => a.id !== removedId)
-  galleryListKey.value += 1
-  await nextTick()
-  bindGalleryObserver()
   try {
     const data = await requestDeleteAlbum(removedId)
     notifyGallerySync()
@@ -452,17 +446,13 @@ async function deleteAlbumFromGrid(album) {
         latestIds: data.latestIds,
         rev: data.rev,
       })
-      deletingAlbumId.value = ''
       return
     }
     sessionStorage.setItem('gallery-scroll-restore', '1')
     window.location.reload()
   } catch (e) {
-    albums.value = snapshot
-    galleryListKey.value += 1
-    await nextTick()
-    bindGalleryObserver()
     window.alert(e.message || String(e))
+  } finally {
     deletingAlbumId.value = ''
   }
 }

@@ -184,6 +184,20 @@ export async function listRepoDir(dirPath) {
   return Array.isArray(data) ? data : []
 }
 
+// 判断仓库路径是否存在（404 返回 false，供写后验证）
+export async function repoPathExists(path) {
+  const branch = await ensureSourceBranch()
+  const res = await fetch(`${apiUrl(path)}?ref=${branch}`, {
+    headers: authHeaders(),
+  })
+  if (res.status === 404) return false
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(toFriendlyGithubError(err.message || `GitHub API 失败 (${res.status})`))
+  }
+  return true
+}
+
 // 解析 galleryAlbums.js 文本为数组（不用 dynamic import，兼容 IIFE + 微信内置浏览器）
 function parseGalleryAlbumsFromJs(text) {
   const marker = 'export const galleryAlbums = '
