@@ -1,0 +1,174 @@
+/* 全局 CSS 变量：玫瑰金 + 柔粉配色体系 */
+:root {
+  /* 主色：玫瑰金 */
+  --color-primary: #c9a87c;
+  /* 主色加深，用于 hover */
+  --color-primary-dark: #a8865a;
+  /* 辅助粉 */
+  --color-accent: #e8b4b8;
+  /* 浅粉背景 */
+  --color-bg-soft: #fdf6f4;
+  /* 页面底色 */
+  --color-bg: #fffaf8;
+  /* 主文字色 */
+  --color-text: #3d2c2e;
+  /* 次要文字色 */
+  --color-text-muted: #8a7375;
+  /* 卡片白底 */
+  --color-white: #ffffff;
+  /* 阴影 */
+  --shadow-soft: 0 8px 32px rgba(201, 168, 124, 0.12);
+  --shadow-card: 0 4px 20px rgba(61, 44, 46, 0.08);
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  /* 衬线标题字体（离线回退系统字体） */
+  --font-display: 'Times New Roman', 'Noto Serif SC', 'SimSun', serif;
+  /* 正文字体（离线回退系统字体） */
+  --font-body: 'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  /* 顶栏高度 */
+  --header-height: 72px;
+}
+
+/* 重置盒模型 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 平滑滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 页面基础排版 */
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 链接默认样式 */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 图片自适应 */
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* 主容器 */
+#app {
+  min-height: 100vh;
+}
+
+/* 区块通用内边距 */
+.section {
+  padding: 96px 24px;
+}
+
+/* 内容最大宽度居中 */
+.container {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+/* 区块标题组 */
+.section-header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.section-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.section-desc {
+  margin-top: 16px;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 主按钮 */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: var(--color-white);
+  border: none;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(201, 168, 124, 0.25);
+}
+
+/* 次要描边按钮 */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 32px;
+  background: transparent;
+  color: var(--color-primary-dark);
+  border: 1.5px solid var(--color-primary);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-outline:hover {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+/* 移动端减小区块间距 */
+@media (max-width: 768px) {
+  .section {
+    padding: 64px 20px;
+  }
+
+  .section-header {
+    margin-bottom: 40px;
+  }
+}

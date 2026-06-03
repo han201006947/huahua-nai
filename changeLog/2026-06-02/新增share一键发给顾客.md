@@ -30,10 +30,14 @@ npm run share
 ## Git 提交
 
 - **是否已提交**：是
-- **本地 commit**：待 commit 后回填
+- **本地 commit**：e05751f（master，未 push）
 - **提交说明**：fix: 修复 share-online.ps1 PowerShell 中文编码解析错误
 
 ## 补充（2026-06-02）
 
 PowerShell 5.1 读取 UTF-8 无 BOM 中文脚本会语法报错，已将 Write-Host 改为英文避免编码问题。
+
+## 补充（2026-06-02 · Netlify 空白页）
+
+Netlify Drop 在国内常空白；`npm run share` 改为打包 `release/website-upload.zip` 并打开 tiiny.host 上传。
 
