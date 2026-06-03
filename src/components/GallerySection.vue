@@ -267,8 +267,14 @@ function bumpGalleryMediaBust() {
 }
 
 // 顾客从其它 App 返回时拉最新列表
-function onCustomerVisibilityRefresh() {
-  if (document.visibilityState === 'visible') refreshCustomerAlbums()
+async function onCustomerVisibilityRefresh() {
+  if (document.visibilityState !== 'visible') return
+  const synced = await refreshCustomerAlbums()
+  if (synced) {
+    galleryListKey.value += 1
+    coverFailedIds.value = new Set()
+    nextTick(() => bindGalleryObserver())
+  }
 }
 
 // 顾客页定时拉最新 galleryAlbums（店主删款后无需等 Actions）
@@ -278,11 +284,21 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   // 顾客：打开/返回页面时拉 GitHub 最新 galleryAlbums（不依赖旧 app.js 打包）
   if (isOnlineAdminMode() && !isAdminLoggedIn.value) {
-    refreshCustomerAlbums()
+    const ok = await refreshCustomerAlbums()
+    if (ok) {
+      galleryListKey.value += 1
+      coverFailedIds.value = new Set()
+    }
     document.addEventListener('visibilitychange', onCustomerVisibilityRefresh)
-    customerPollTimer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') refreshCustomerAlbums()
-    }, 45000)
+    customerPollTimer = window.setInterval(async () => {
+      if (document.visibilityState !== 'visible') return
+      const synced = await refreshCustomerAlbums()
+      if (synced) {
+        galleryListKey.value += 1
+        coverFailedIds.value = new Set()
+        nextTick(() => bindGalleryObserver())
+      }
+    }, 30000)
   }
   // dev 删款 reload 后滚回作品集区域
   if (isDev && sessionStorage.getItem('gallery-scroll-restore') === '1') {

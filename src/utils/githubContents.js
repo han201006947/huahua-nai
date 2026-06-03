@@ -184,21 +184,70 @@ export async function listRepoDir(dirPath) {
   return Array.isArray(data) ? data : []
 }
 
-// 从 raw 拉取 galleryAlbums.js（无需登录，给顾客扫码用）
+// 解析 galleryAlbums.js 文本为数组（不用 dynamic import，兼容 IIFE + 微信内置浏览器）
+function parseGalleryAlbumsFromJs(text) {
+  const marker = 'export const galleryAlbums = '
+  const start = text.indexOf(marker)
+  if (start < 0) throw new Error('作品集文件格式异常')
+  let i = start + marker.length
+  while (i < text.length && /\s/.test(text[i])) i += 1
+  if (text[i] !== '[') throw new Error('作品集文件格式异常')
+  let depth = 0
+  let inString = false
+  let quote = ''
+  let escape = false
+  for (let j = i; j < text.length; j += 1) {
+    const c = text[j]
+    if (inString) {
+      if (escape) {
+        escape = false
+        continue
+      }
+      if (c === '\\') {
+        escape = true
+        continue
+      }
+      if (c === quote) inString = false
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      inString = true
+      quote = c
+      continue
+    }
+    if (c === '[') depth += 1
+    if (c === ']') {
+      depth -= 1
+      if (depth === 0) {
+        const arrText = text.slice(i, j + 1)
+        // eslint-disable-next-line no-new-func
+        const list = new Function(`return ${arrText}`)()
+        if (!Array.isArray(list)) throw new Error('作品集不是数组')
+        return list
+      }
+    }
+  }
+  throw new Error('作品集文件不完整')
+}
+
+// 从 CDN/raw 拉取 galleryAlbums.js（无需登录，给顾客扫码用）
 export async function fetchPublicGalleryAlbums() {
   if (!REPO) throw new Error('未配置线上仓库')
-  for (const branch of [PREFERRED_BRANCH, 'master', 'main']) {
-    const url = `https://raw.githubusercontent.com/${REPO}/${branch}/src/data/galleryAlbums.js?t=${Date.now()}`
-    const res = await fetch(url)
-    if (!res.ok) continue
-    const text = await res.text()
-    const blob = new Blob([text], { type: 'text/javascript' })
-    const modUrl = URL.createObjectURL(blob)
-    try {
-      const mod = await import(/* @vite-ignore */ modUrl)
-      return [...(mod.galleryAlbums || [])]
-    } finally {
-      URL.revokeObjectURL(modUrl)
+  const branches = [PREFERRED_BRANCH, 'master', 'main']
+  for (const branch of branches) {
+    const urls = [
+      `https://cdn.jsdelivr.net/gh/${REPO}@${branch}/src/data/galleryAlbums.js`,
+      `https://raw.githubusercontent.com/${REPO}/${branch}/src/data/galleryAlbums.js`,
+    ]
+    for (const base of urls) {
+      try {
+        const res = await fetch(`${base}?t=${Date.now()}`)
+        if (!res.ok) continue
+        const text = await res.text()
+        return [...parseGalleryAlbumsFromJs(text)]
+      } catch {
+        /* 换下一个 URL */
+      }
     }
   }
   throw new Error('无法加载最新作品集')

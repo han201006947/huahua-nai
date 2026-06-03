@@ -19,14 +19,16 @@ function canHotReload() {
 }
 
 export function useGalleryAlbums() {
-  // 顾客扫码：从 GitHub raw 拉最新 galleryAlbums.js（删款后约 1～3 分钟与 Actions 同步）
+  // 顾客扫码：从 GitHub 拉最新 galleryAlbums.js（微信内不能用 dynamic import）
   async function refreshCustomerAlbums() {
-    if (isDev || !isOnlineAdminMode() || getGithubToken()) return
+    if (isDev || !isOnlineAdminMode() || getGithubToken()) return false
     try {
       const list = await fetchPublicGalleryAlbums()
       albumsRef.value = [...list]
+      return true
     } catch {
       /* 保留打包静态列表 */
+      return false
     }
   }
 
