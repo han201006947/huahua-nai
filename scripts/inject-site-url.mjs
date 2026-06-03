@@ -48,10 +48,9 @@ function patchIndexHtml(cdnBase) {
     // style.css / app.js 必须留在 GitHub Pages（./assets/…），勿改 jsDelivr：
     // jsDelivr 对 gh-pages 的 CSS 常 502，会导致整页无样式；大图仍由 Vue 内 assetUrl() 走 CDN
     if (!html.includes('rel="preconnect" href="https://cdn.jsdelivr.net"')) {
-      const heroHref = `${cdnBase}/hb.jpg${ver ? `?v=${ver}` : ''}`
+      const heroHref = `./hb.jpg${ver ? `?v=${ver}` : ''}`
       const hints = [
-        '<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>',
-        '<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">',
+        '<link rel="dns-prefetch" href="https://github.io">',
         `<link rel="preload" as="image" href="${heroHref}">`,
       ].join('\n    ')
       html = html.replace('</head>', `    ${hints}\n  </head>`)
@@ -64,7 +63,7 @@ function patchIndexHtml(cdnBase) {
         html = html.replace('</head>', `    ${preloadJs}\n  </head>`)
       }
     }
-    console.log('>> CSS/JS 保留 github.io；价目图 preload 走 jsDelivr')
+    console.log('>> 价目图 preload 与封面走 Pages 同域相对路径')
   }
 
   fs.writeFileSync(indexPath, html, 'utf8')

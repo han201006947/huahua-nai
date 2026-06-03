@@ -145,10 +145,11 @@ function gridCoverIsVideo(album) {
   return /\.(mp4|webm|mov)$/i.test(album.cover || '')
 }
 
-// 封面懒加载：线上直接加载（避免网格空白）；dev 全加载
+// 封面懒加载：最新置顶 + 进入视口才请求（避免 24 张同时拉取卡半分钟）
 function shouldLoadCover(album) {
   if (gridCoverIsVideo(album)) return false
-  if (isDev || isOnlineAdminMode()) return true
+  if (isDev) return true
+  if (latestAlbumIds.value.includes(album.id)) return true
   return visibleAlbumIds.value.has(album.id)
 }
 
@@ -204,7 +205,7 @@ function bindGalleryObserver() {
       }
       visibleAlbumIds.value = next
     },
-    { rootMargin: '160px', threshold: 0.01 }
+    { rootMargin: '320px', threshold: 0.01 }
   )
   const viewportH = window.innerHeight || document.documentElement.clientHeight
   document.querySelectorAll('.gallery-item[data-album-id]').forEach((el) => {
@@ -303,15 +304,15 @@ async function applyOnlineGallerySync(force = false) {
   }
 }
 
-// 从后台返回时拉最新列表
+// 从后台返回：只轻量比对 revision，不强制拉大文件
 async function onVisibilityGalleryRefresh() {
   if (document.visibilityState !== 'visible') return
-  await applyOnlineGallerySync(true)
+  await applyOnlineGallerySync(false)
 }
 
-// 线上后台同步：首屏只用打包数据，延迟再拉 GitHub（避免扫码卡住）
-const BG_SYNC_IDLE_MS = 4500
-const ONLINE_POLL_MS = 5000
+// 线上后台同步：首屏零网络；用户滚到作品集或 15 秒 idle 后再比对
+const BG_SYNC_IDLE_MS = 15000
+const ONLINE_POLL_MS = 30000
 let onlinePollTimer = null
 let bgSyncScheduled = false
 

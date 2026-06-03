@@ -17,9 +17,23 @@ function normalizeRel(path) {
   return String(path || '').replace(/^\.\//, '').replace(/^\//, '')
 }
 
-// gh-pages CDN（顾客与店主网格/详情默认走此路径，体积小加载快）
+// gh-pages：与 app 同域相对路径（少一跳 CDN）；离线包仍用 ./
+function isOnPagesSite() {
+  if (typeof window === 'undefined' || !publicSiteUrl) return false
+  try {
+    const page = new URL(window.location.href)
+    const site = new URL(publicSiteUrl.endsWith('/') ? publicSiteUrl : `${publicSiteUrl}/`)
+    const basePath = site.pathname.replace(/\/$/, '') || '/'
+    return page.origin === site.origin && page.pathname.startsWith(basePath)
+  } catch {
+    return false
+  }
+}
+
+// 封面/静态图 URL（Pages 上优先同域相对路径）
 function withGhPages(rel) {
   const q = buildVer ? `?v=${buildVer}` : ''
+  if (isOnPagesSite()) return `./${rel}${q}`
   if (cdnBase) return `${cdnBase}/${rel}${q}`
   return `./${rel}${q}`
 }
