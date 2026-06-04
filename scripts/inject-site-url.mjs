@@ -35,39 +35,36 @@ function injectBootSplash(html) {
   return html.replace('<div id="app"></div>', `<div id="app">${splash}</div>`)
 }
 
-// 在 index.html 注入 CDN 预连接、preload、首屏占位
+// 在 index.html 注入预连接与 CSS/JS preload（价目图由 img fetchpriority 拉取，避免与脚本抢带宽）
 function patchIndexHtml(cdnBase) {
   if (!fs.existsSync(indexPath)) return
   let html = fs.readFileSync(indexPath, 'utf8')
   html = injectBootSplash(html)
 
-  const verMatch = html.match(/app\.js\?v=(\d+)/)
-  const ver = verMatch ? verMatch[1] : ''
+  const cssMatch = html.match(/href="\.\/assets\/style\.css\?v=[^"]+"/)
+  const jsMatch = html.match(/src="\.\/assets\/app\.js\?v=[^"]+"/)
+  const hints = []
 
-  if (cdnBase) {
-    // style.css / app.js 必须留在 GitHub Pages（./assets/…），勿改 jsDelivr：
-    // jsDelivr 对 gh-pages 的 CSS 常 502，会导致整页无样式；大图仍由 Vue 内 assetUrl() 走 CDN
-    if (!html.includes('rel="preconnect" href="https://cdn.jsdelivr.net"')) {
-      const heroHref = `./hb.jpg${ver ? `?v=${ver}` : ''}`
-      const hints = [
-        '<link rel="dns-prefetch" href="https://github.io">',
-        `<link rel="preload" as="image" href="${heroHref}">`,
-      ].join('\n    ')
-      html = html.replace('</head>', `    ${hints}\n  </head>`)
-    }
-    // 预加载主脚本，缩短扫码白屏（路径在 fix-dist-html 中写入）
-    if (!html.includes('rel="preload" as="script"')) {
-      const jsMatch = html.match(/src="\.\/assets\/app\.js\?v=[^"]+"/)
-      if (jsMatch) {
-        const preloadJs = `<link rel="preload" as="script" href="${jsMatch[0].slice(5, -1)}">`
-        html = html.replace('</head>', `    ${preloadJs}\n  </head>`)
-      }
-    }
-    console.log('>> 价目图 preload 与封面走 Pages 同域相对路径')
+  if (!html.includes('dns-prefetch" href="https://github.io"')) {
+    hints.push('<link rel="dns-prefetch" href="https://github.io">')
+    hints.push('<link rel="preconnect" href="https://github.io" crossorigin>')
+  }
+  if (cssMatch && !html.includes('rel="preload" as="style"')) {
+    hints.push(`<link rel="preload" as="style" href="${cssMatch[0].slice(6, -1)}">`)
+  }
+  if (jsMatch && !html.includes('rel="preload" as="script"')) {
+    hints.push(`<link rel="preload" as="script" href="${jsMatch[0].slice(5, -1)}">`)
+  }
+  if (cdnBase && !html.includes('dns-prefetch" href="https://cdn.jsdelivr.net"')) {
+    hints.push('<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">')
+  }
+
+  if (hints.length) {
+    html = html.replace('</head>', `    ${hints.join('\n    ')}\n  </head>`)
   }
 
   fs.writeFileSync(indexPath, html, 'utf8')
-  if (cdnBase) console.log('>> 已注入 jsDelivr 预连接、preload 与首屏占位')
+  if (hints.length) console.log('>> 已注入 Pages 预连接与 CSS/JS preload（价目图不再 link-preload）')
 }
 
 const cfg = loadDeployConfig()

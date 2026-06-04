@@ -1,6 +1,6 @@
 <script setup>
 // 引入各页面区块组件
-import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
 import NavHeader from './components/NavHeader.vue'
 import HeroSection from './components/HeroSection.vue'
 import ServiceSection from './components/ServiceSection.vue'
@@ -13,13 +13,8 @@ const GallerySection = defineAsyncComponent(() => import('./components/GallerySe
 
 const AboutSection = defineAsyncComponent(() => import('./components/AboutSection.vue'))
 
-function shouldMountGalleryImmediately() {
-  if (typeof window === 'undefined') return false
-  if (window.location.hash.includes('gallery')) return true
-  return new URLSearchParams(window.location.search).has('adminLogin')
-}
-
-const showGallery = ref(shouldMountGalleryImmediately())
+// 作品集默认不挂载，减轻顾客/店主扫码首屏 JS 与图片并发
+const showGallery = ref(false)
 const showAbout = ref(false)
 let belowFoldObserver = null
 
@@ -27,8 +22,37 @@ function mountGallery() {
   showGallery.value = true
 }
 
+// 带 #gallery 或店主登录参数：先出 Hero，idle 后再挂作品集（比同步 mount 快）
+function scheduleGalleryMount(isAdminEntry = false) {
+  if (showGallery.value) return
+  const run = () => {
+    showGallery.value = true
+  }
+  const idleTimeout = isAdminEntry ? 900 : 600
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(run, { timeout: idleTimeout })
+  } else {
+    window.setTimeout(run, isAdminEntry ? 350 : 200)
+  }
+}
+
+// 锚点 #gallery：作品集挂上后滚到网格（店主码 URL 自带此 hash）
+watch(showGallery, (visible) => {
+  if (!visible || !window.location.hash.includes('gallery')) return
+  nextTick(() => {
+    document.getElementById('gallery')?.scrollIntoView({ behavior: 'instant', block: 'start' })
+  })
+})
+
 onMounted(() => {
   window.addEventListener('mount-gallery', mountGallery)
+
+  const params = new URLSearchParams(window.location.search)
+  const isAdminEntry = params.has('adminLogin')
+  const hashGallery = window.location.hash.includes('gallery')
+  if (isAdminEntry || hashGallery) {
+    scheduleGalleryMount(isAdminEntry)
+  }
 
   // 顾客首页：不自动挂作品集，滚到下方或点按钮再加载
   const sentinel = document.getElementById('below-fold-sentinel')

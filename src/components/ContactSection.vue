@@ -72,6 +72,8 @@ import { assetUrl } from '../utils/assetUrl.js'
               class="wechat-qr"
               :src="assetUrl(contactInfo.wechatQr)"
               :alt="contactInfo.wechatQrAlt"
+              loading="lazy"
+              decoding="async"
             />
           </div>
           <p class="wechat-hint">{{ contactInfo.wechatQrHint }}</p>

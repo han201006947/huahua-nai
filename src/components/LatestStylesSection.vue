@@ -1,6 +1,6 @@
 <script setup>
-// 美甲服务下方：最新上传 3 款（首屏即挂载，不依赖作品集 lazy load）
-import { ref, computed } from 'vue'
+// 美甲服务下方：最新上传 3 款（区块先出，封面略延后，避免与价目图抢带宽）
+import { ref, computed, onMounted } from 'vue'
 import { useGalleryAlbums } from '../composables/useGalleryAlbums.js'
 import { useLatestDisplayAlbums } from '../composables/useLatestDisplayAlbums.js'
 import { useOnlineGallerySync } from '../composables/useOnlineGallerySync.js'
@@ -24,6 +24,19 @@ useOnlineGallerySync()
 
 const coverFailedIds = ref(new Set())
 const landscapeKeys = ref(new Set())
+// 首屏先出标题与占位，idle 后再拉 3 张缩略图
+const loadLatestCovers = ref(false)
+
+onMounted(() => {
+  const start = () => {
+    loadLatestCovers.value = true
+  }
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(start, { timeout: 1800 })
+  } else {
+    window.setTimeout(start, 700)
+  }
+})
 
 const showBlock = computed(() => latestAlbums.value.length > 0)
 
@@ -46,9 +59,9 @@ function markLandscapeIfNeeded(event, key) {
   if (w > h) landscapeKeys.value = new Set([...landscapeKeys.value, key])
 }
 
-// 最新 3 张始终加载封面（仅 3 张，不影响首屏速度）
+// 最新 3 张封面在 idle 后加载（仅 3 张，不阻塞价目 Hero）
 function shouldLoadCover() {
-  return true
+  return loadLatestCovers.value
 }
 
 function onCoverImgError(event, album) {

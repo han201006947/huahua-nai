@@ -42,6 +42,12 @@ const emit = defineEmits(['open', 'delete', 'cover-load', 'cover-error'])
       <div v-if="coverFailed" class="gallery-media gallery-cover-missing" aria-hidden="true">
         <span>暂无图片</span>
       </div>
+      <!-- 封面尚未请求时显示占位，避免空白闪烁 -->
+      <div
+        v-else-if="!loadCover && !gridCoverIsVideo(album)"
+        class="gallery-media gallery-cover-skeleton"
+        aria-hidden="true"
+      />
       <img
         v-else-if="!gridCoverIsVideo(album)"
         class="gallery-media"
@@ -76,3 +82,36 @@ const emit = defineEmits(['open', 'delete', 'cover-load', 'cover-error'])
     </div>
   </figure>
 </template>
+
+<style scoped>
+/* 封面懒加载前的浅色占位，避免空白格 */
+.gallery-cover-skeleton {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  background: linear-gradient(110deg, #ece4dc 8%, #f5f0ea 18%, #ece4dc 33%);
+  background-size: 200% 100%;
+  animation: gallery-cover-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes gallery-cover-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.gallery-cover-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  background: #ece4dc;
+  color: #8a7a72;
+  font-size: 0.75rem;
+}
+</style>
