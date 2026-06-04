@@ -97,6 +97,13 @@ export function coverThumbUrl(src) {
   return withGhPages(thumb)
 }
 
+// 视频首帧封面（build 时 optimize-dist-videos 生成 .poster.jpg，点开详情前即显示）
+export function videoPosterUrl(videoSrc) {
+  if (!videoSrc || !/\.(mp4|webm|mov)$/i.test(videoSrc)) return ''
+  const rel = normalizeRel(videoSrc).replace(/\.(mp4|mov|webm)$/i, '.poster.jpg')
+  return withGhPages(rel)
+}
+
 export function isOnlineCdn() {
   return Boolean(cdnBase)
 }

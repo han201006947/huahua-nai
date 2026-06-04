@@ -17,7 +17,7 @@ import {
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
-import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
+import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl, videoPosterUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, latestAlbumIds, reloadCategories, isDev } = useGalleryAlbums()
@@ -563,13 +563,14 @@ async function deleteAlbumFromGrid(album) {
                 @error="onMediaImgError($event, item.src)"
                 @click="openLightbox(item.src)"
               />
-              <!-- 视频：横屏占两格，网格内直接播放 -->
+              <!-- 视频：poster 先显示封面，preload=none 避免一点开就拉整段 mp4 -->
               <video
                 v-else
                 :src="assetUrl(item.src)"
+                :poster="videoPosterUrl(item.src)"
                 controls
                 playsinline
-                preload="metadata"
+                preload="none"
                 @loadedmetadata="markLandscapeIfNeeded($event, 'detail-' + activeAlbum.id + '-' + index)"
                 @click.stop
               />

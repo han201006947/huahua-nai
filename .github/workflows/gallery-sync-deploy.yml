@@ -12,6 +12,7 @@ on:
       - 'scripts/write-deploy-config-ci.mjs'
       - 'scripts/deploy-gh-pages-ci.mjs'
       - 'scripts/optimize-dist-images.mjs'
+      - 'scripts/optimize-dist-videos.mjs'
       - 'vite.config.js'
       - 'index.html'
       - '.github/workflows/gallery-sync-deploy.yml'
@@ -51,6 +52,9 @@ jobs:
 
       - name: Write deploy.config for CI
         run: node scripts/write-deploy-config-ci.mjs
+
+      - name: Install ffmpeg for video compression
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Build site
         run: npm run build:ci
