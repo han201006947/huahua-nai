@@ -17,7 +17,7 @@ import {
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
-import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl, videoPosterUrl } from '../utils/assetUrl.js'
+import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, latestAlbumIds, reloadCategories, isDev } = useGalleryAlbums()
@@ -32,6 +32,7 @@ const canManage = computed(() => isAdminLoggedIn.value)
 const GalleryAdminPanel = defineAsyncComponent(() => import('./GalleryAdminPanel.vue'))
 // 网格单卡（主列表 + 最新款式共用）
 import GalleryAlbumCard from './GalleryAlbumCard.vue'
+import GalleryDetailVideo from './GalleryDetailVideo.vue'
 
 // 管理面板是否展开（登录后默认展开）
 const adminPanelOpen = ref(false)
@@ -563,16 +564,11 @@ async function deleteAlbumFromGrid(album) {
                 @error="onMediaImgError($event, item.src)"
                 @click="openLightbox(item.src)"
               />
-              <!-- 视频：poster 先显示封面，preload=none 避免一点开就拉整段 mp4 -->
-              <video
+              <!-- 视频：点击播放后才加载 mp4，打开详情只显示封面 -->
+              <GalleryDetailVideo
                 v-else
-                :src="assetUrl(item.src)"
-                :poster="videoPosterUrl(item.src)"
-                controls
-                playsinline
-                preload="none"
+                :src="item.src"
                 @loadedmetadata="markLandscapeIfNeeded($event, 'detail-' + activeAlbum.id + '-' + index)"
-                @click.stop
               />
               <!-- 本地 dev：删除单张图/视频 -->
               <button
