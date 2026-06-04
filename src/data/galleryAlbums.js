@@ -247,4 +247,14 @@ export const galleryAlbums = [
       { type: 'video', src: './zhuti/z2-jiehun.mp4' },
     ],
   },
+  {
+    id: 'caihui-c5',
+    title: '贴纸彩绘 c5',
+    category: '彩绘',
+    cover: 'blob:https://han201006947.github.io/b67b197e-3637-4ce4-823d-abfcaab1f281',
+    hasVideo: false,
+    media: [
+      { type: 'image', src: 'blob:https://han201006947.github.io/b67b197e-3637-4ce4-823d-abfcaab1f281' },
+    ],
+  },
 ]
