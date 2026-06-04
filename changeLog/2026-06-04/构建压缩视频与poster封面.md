@@ -32,5 +32,5 @@ push master → Actions 绿 → 顾客站点开含视频款式：先见封面，
 ## Git 提交
 
 - **是否已提交**：是
-- **本地 commit**：49d5926（nail-beauty / master / 未 push）
+- **本地 commit**：71c3ecc（nail-beauty / master / 已 push）
 - **提交说明**：feat: 构建时压缩视频并生成 poster 加快播放
