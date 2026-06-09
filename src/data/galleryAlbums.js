@@ -249,16 +249,16 @@ export const galleryAlbums = [
   },
   {
     id: 'zhuti-z3',
-    title: '主题款 z3',
+    title: '主题款 3',
     category: '主题款',
-    cover: 'blob:https://han201006947.github.io/1df7e057-1c42-45f5-b916-f2354c7fa4f0',
+    cover: './zhuti/z3/IMG20260609185958.jpg',
     hasVideo: false,
     stylePreview: true,
     media: [
-      { type: 'image', src: 'blob:https://han201006947.github.io/1df7e057-1c42-45f5-b916-f2354c7fa4f0' },
-      { type: 'image', src: 'blob:https://han201006947.github.io/af8db7ca-889e-403e-b6eb-738fae9fdc9b' },
-      { type: 'image', src: 'blob:https://han201006947.github.io/cd08c02d-d031-4518-9647-080d1e94a023' },
-      { type: 'image', src: 'blob:https://han201006947.github.io/f6c2504d-e9b2-442e-965d-87dfda9a6c02' },
+      { type: 'image', src: './zhuti/z3/IMG20260609185958.jpg' },
+      { type: 'image', src: './zhuti/z3/IMG20260609190147.jpg' },
+      { type: 'image', src: './zhuti/z3/IMG20260609190515.jpg' },
+      { type: 'image', src: './zhuti/z3/mmexport1781004191774.jpg' },
     ],
   },
 ]
