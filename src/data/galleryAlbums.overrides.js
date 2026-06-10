@@ -27,4 +27,9 @@ export const albumOverrides = {
   'zhuti-z3': {
     stylePreview: true,
   },
+  // Windows 文件夹名为 Z3，sync 生成 id 为 zhuti-Z3
+  'zhuti-Z3': {
+    title: '主题款 3',
+    stylePreview: true,
+  },
 }
