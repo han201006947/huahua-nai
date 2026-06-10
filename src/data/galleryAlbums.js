@@ -52,6 +52,16 @@ export const galleryAlbums = [
     ],
   },
   {
+    id: 'caihui-c5',
+    title: '贴纸彩绘 5',
+    category: '彩绘',
+    cover: './caihui/c5/c51.jpg',
+    hasVideo: false,
+    media: [
+      { type: 'image', src: './caihui/c5/c51.jpg' },
+    ],
+  },
+  {
     id: 'fashi-f1',
     title: '法式经典',
     category: '法式',
@@ -248,17 +258,16 @@ export const galleryAlbums = [
     ],
   },
   {
-    id: 'zhuti-z3',
+    id: 'zhuti-Z3',
     title: '主题款 3',
     category: '主题款',
-    cover: './zhuti/z3/IMG20260609185958.jpg',
+    cover: './zhuti/Z3/IMG20260609185958.jpg',
     hasVideo: false,
-    stylePreview: true,
     media: [
-      { type: 'image', src: './zhuti/z3/IMG20260609185958.jpg' },
-      { type: 'image', src: './zhuti/z3/IMG20260609190147.jpg' },
-      { type: 'image', src: './zhuti/z3/IMG20260609190515.jpg' },
-      { type: 'image', src: './zhuti/z3/mmexport1781004191774.jpg' },
+      { type: 'image', src: './zhuti/Z3/IMG20260609185958.jpg' },
+      { type: 'image', src: './zhuti/Z3/IMG20260609190147.jpg' },
+      { type: 'image', src: './zhuti/Z3/IMG20260609190515.jpg' },
+      { type: 'image', src: './zhuti/Z3/mmexport1781004191774.jpg' },
     ],
   },
 ]
