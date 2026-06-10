@@ -274,4 +274,17 @@ export const galleryAlbums = [
       { type: 'image', src: './zhuti/z4/IMG_20260609_195104.jpg' },
     ],
   },
+  {
+    id: 'zhuti-z5',
+    title: '主题款 5',
+    category: '主题款',
+    cover: './zhuti/z5/IMG_20260609_193739.jpg',
+    hasVideo: false,
+    media: [
+      { type: 'image', src: './zhuti/z5/IMG_20260609_193739.jpg' },
+      { type: 'image', src: './zhuti/z5/IMG_20260609_194107.jpg' },
+      { type: 'image', src: './zhuti/z5/IMG_20260609_194442.jpg' },
+      { type: 'image', src: './zhuti/z5/IMG_20260609_195104.jpg' },
+    ],
+  },
 ]
