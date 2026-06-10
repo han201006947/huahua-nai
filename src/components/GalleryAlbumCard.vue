@@ -1,7 +1,7 @@
 <script setup>
 // 作品集网格单卡（主网格与「最新款式」共用）
 import { STYLE_PREVIEW_LABEL } from '../data/galleryAlbums.js'
-import { coverThumbUrl } from '../utils/assetUrl.js'
+import { coverThumbUrl, gridCoverForAlbum, gridCoverIsVideoOnly } from '../utils/assetUrl.js'
 
 const props = defineProps({
   album: { type: Object, required: true },
@@ -11,12 +11,23 @@ const props = defineProps({
   deletingAlbumId: { type: String, default: '' },
   coverFailed: { type: Boolean, default: false },
   loadCover: { type: Boolean, default: true },
-  gridCoverIsVideo: { type: Function, required: true },
+  // 保留 prop 兼容旧调用，实际封面逻辑见 gridCoverForAlbum
+  gridCoverIsVideo: { type: Function, default: null },
   isLandscape: { type: Function, required: true },
   isCoverLandscapeVideo: { type: Function, required: true },
 })
 
 const emit = defineEmits(['open', 'delete', 'cover-load', 'cover-error'])
+
+// 含视频相册：优先图片/poster 封面，避免网格黑屏
+function coverIsVideoOnly(album) {
+  if (props.gridCoverIsVideo) return props.gridCoverIsVideo(album)
+  return gridCoverIsVideoOnly(album)
+}
+
+function coverSrc(album) {
+  return gridCoverForAlbum(album)
+}
 </script>
 
 <template>
@@ -33,7 +44,7 @@ const emit = defineEmits(['open', 'delete', 'cover-load', 'cover-error'])
       }"
     >
       <div
-        v-if="gridCoverIsVideo(album)"
+        v-if="coverIsVideoOnly(album)"
         class="gallery-media gallery-video-placeholder"
         aria-hidden="true"
       >
@@ -44,14 +55,14 @@ const emit = defineEmits(['open', 'delete', 'cover-load', 'cover-error'])
       </div>
       <!-- 封面尚未请求时显示占位，避免空白闪烁 -->
       <div
-        v-else-if="!loadCover && !gridCoverIsVideo(album)"
+        v-else-if="!loadCover && !coverIsVideoOnly(album)"
         class="gallery-media gallery-cover-skeleton"
         aria-hidden="true"
       />
       <img
-        v-else-if="!gridCoverIsVideo(album)"
+        v-else-if="!coverIsVideoOnly(album)"
         class="gallery-media"
-        :src="loadCover ? coverThumbUrl(album.cover) : undefined"
+        :src="loadCover ? coverThumbUrl(coverSrc(album)) : undefined"
         alt=""
         loading="lazy"
         decoding="async"

@@ -104,6 +104,22 @@ export function videoPosterUrl(videoSrc) {
   return withGhPages(rel)
 }
 
+// 网格卡片有效封面：相册含图时用第一张图；仅视频时用 poster，避免黑屏
+export function gridCoverForAlbum(album) {
+  if (!album) return ''
+  const cover = String(album.cover || '')
+  if (!/\.(mp4|webm|mov)$/i.test(cover)) return cover
+  const firstImage = (album.media || []).find((m) => m.type === 'image')
+  if (firstImage?.src) return firstImage.src
+  return cover.replace(/\.(mp4|webm|mov)$/i, '.poster.jpg')
+}
+
+// 网格是否只能显示视频占位（无图且无 poster 路径可展示）
+export function gridCoverIsVideoOnly(album) {
+  const src = gridCoverForAlbum(album)
+  return /\.(mp4|webm|mov)$/i.test(src)
+}
+
 export function isOnlineCdn() {
   return Boolean(cdnBase)
 }

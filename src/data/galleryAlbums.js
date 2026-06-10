@@ -59,6 +59,8 @@ export const galleryAlbums = [
     hasVideo: false,
     media: [
       { type: 'image', src: './caihui/c5/c51.jpg' },
+      { type: 'image', src: './caihui/c5/c52.jpg' },
+      { type: 'image', src: './caihui/c5/c53.jpg' },
     ],
   },
   {
@@ -258,17 +260,17 @@ export const galleryAlbums = [
     ],
   },
   {
-    id: 'zhuti-z3',
+    id: 'zhuti-Z3',
     title: '主题款 3',
     category: '主题款',
-    cover: './zhuti/z3/IMG20260609185958.jpg',
+    cover: './zhuti/Z3/IMG20260609185958.jpg',
     hasVideo: false,
     stylePreview: true,
     media: [
-      { type: 'image', src: './zhuti/z3/IMG20260609185958.jpg' },
-      { type: 'image', src: './zhuti/z3/IMG20260609190147.jpg' },
-      { type: 'image', src: './zhuti/z3/IMG20260609190515.jpg' },
-      { type: 'image', src: './zhuti/z3/mmexport1781004191774.jpg' },
+      { type: 'image', src: './zhuti/Z3/IMG20260609185958.jpg' },
+      { type: 'image', src: './zhuti/Z3/IMG20260609190147.jpg' },
+      { type: 'image', src: './zhuti/Z3/IMG20260609190515.jpg' },
+      { type: 'image', src: './zhuti/Z3/mmexport1781004191774.jpg' },
     ],
   },
 ]

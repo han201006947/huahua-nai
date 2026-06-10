@@ -17,7 +17,7 @@ import {
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
-import { assetUrl, coverThumbUrl, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
+import { assetUrl, coverThumbUrl, gridCoverForAlbum, gridCoverIsVideoOnly, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, latestAlbumIds, reloadCategories, isDev } = useGalleryAlbums()
@@ -126,9 +126,9 @@ const filteredAlbums = computed(() => {
 // 主网格：展示全部款式
 const mainGridAlbums = computed(() => filteredAlbums.value)
 
-// 网格封面是否为纯视频（不在列表里预加载 mp4，点开详情再看）
+// 网格封面是否为纯视频（无图且无 poster 时才占位，含视频相册优先显示图片封面）
 function gridCoverIsVideo(album) {
-  return /\.(mp4|webm|mov)$/i.test(album.cover || '')
+  return gridCoverIsVideoOnly(album)
 }
 
 // 封面懒加载：最新置顶 + 进入视口才请求（避免 24 张同时拉取卡半分钟）
@@ -145,24 +145,25 @@ const coverFailedIds = ref(new Set())
 // 封面加载失败：CDN 缩略图 → CDN 原图 → Pages 直链 → 店主 master
 function onCoverImgError(event, album) {
   const img = event.target
+  const coverPath = gridCoverForAlbum(album)
   if (isOwnerGalleryPreview() && img.dataset.masterFallback !== '1') {
     img.dataset.masterFallback = '1'
-    img.src = ownerMasterFallbackUrl(album.cover)
+    img.src = ownerMasterFallbackUrl(coverPath)
     return
   }
   if (img.dataset.fallback !== '1') {
     img.dataset.fallback = '1'
-    img.src = assetUrl(album.cover)
+    img.src = assetUrl(coverPath)
     return
   }
   if (img.dataset.pagesThumb !== '1') {
     img.dataset.pagesThumb = '1'
-    img.src = pagesCoverThumbUrl(album.cover)
+    img.src = pagesCoverThumbUrl(coverPath)
     return
   }
   if (img.dataset.pagesOrig !== '1') {
     img.dataset.pagesOrig = '1'
-    img.src = pagesAssetUrl(album.cover)
+    img.src = pagesAssetUrl(coverPath)
     return
   }
   coverFailedIds.value = new Set([...coverFailedIds.value, album.id])

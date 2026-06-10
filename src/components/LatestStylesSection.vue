@@ -7,6 +7,8 @@ import { useOnlineGallerySync } from '../composables/useOnlineGallerySync.js'
 import GalleryAlbumCard from './GalleryAlbumCard.vue'
 import {
   assetUrl,
+  gridCoverForAlbum,
+  gridCoverIsVideoOnly,
   ownerMasterFallbackUrl,
   pagesAssetUrl,
   pagesCoverThumbUrl,
@@ -41,7 +43,7 @@ onMounted(() => {
 const showBlock = computed(() => latestAlbums.value.length > 0)
 
 function gridCoverIsVideo(album) {
-  return /\.(mp4|webm|mov)$/i.test(album.cover || '')
+  return gridCoverIsVideoOnly(album)
 }
 
 function isLandscape(key) {
@@ -66,24 +68,25 @@ function shouldLoadCover() {
 
 function onCoverImgError(event, album) {
   const img = event.target
+  const coverPath = gridCoverForAlbum(album)
   if (isOwnerGalleryPreview() && img.dataset.masterFallback !== '1') {
     img.dataset.masterFallback = '1'
-    img.src = ownerMasterFallbackUrl(album.cover)
+    img.src = ownerMasterFallbackUrl(coverPath)
     return
   }
   if (img.dataset.fallback !== '1') {
     img.dataset.fallback = '1'
-    img.src = assetUrl(album.cover)
+    img.src = assetUrl(coverPath)
     return
   }
   if (img.dataset.pagesThumb !== '1') {
     img.dataset.pagesThumb = '1'
-    img.src = pagesCoverThumbUrl(album.cover)
+    img.src = pagesCoverThumbUrl(coverPath)
     return
   }
   if (img.dataset.pagesOrig !== '1') {
     img.dataset.pagesOrig = '1'
-    img.src = pagesAssetUrl(album.cover)
+    img.src = pagesAssetUrl(coverPath)
     return
   }
   coverFailedIds.value = new Set([...coverFailedIds.value, album.id])

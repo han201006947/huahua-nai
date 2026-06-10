@@ -3,6 +3,13 @@ export const albumOverrides = {
   'caihui-c1': {
     stylePreview: true,
   },
+  'caihui-c5': {
+    mediaOrder: [
+      './caihui/c5/c51.jpg',
+      './caihui/c5/c52.jpg',
+      './caihui/c5/c53.jpg',
+    ],
+  },
   'fashi-f1': {
     title: '法式经典',
     mediaOrder: [
