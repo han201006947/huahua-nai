@@ -32,6 +32,6 @@ https://han201006947.github.io/huahua-nai/
 
 ## Git 提交
 
-- **是否已提交**：否
-- **本地 commit**：—
-- **提交说明**：—
+- **是否已提交**：是
+- **本地 commit**：3166984（nail-beauty / master，未 push）
+- **提交说明**：docs: 记录 GitHub 同步与二维码更新
