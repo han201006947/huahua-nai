@@ -17,7 +17,7 @@ import {
 // 多标签/多窗口实时同步作品集
 import { notifyGallerySync, useGallerySyncListener } from '../composables/useGallerySync.js'
 // 静态资源相对路径，兼容 GitHub Pages 子目录与离线包
-import { assetUrl, coverThumbUrl, gridCoverForAlbum, gridCoverIsVideoOnly, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
+import { assetUrl, coverThumbUrl, detailVideoGridSpan, gridCoverForAlbum, gridCoverIsVideoOnly, ownerMasterFallbackUrl, pagesAssetUrl, pagesCoverThumbUrl } from '../utils/assetUrl.js'
 
 // 相册数据与 reload（仅 dev 走 API）
 const { albums, categoryOptions, latestAlbumIds, reloadCategories, isDev } = useGalleryAlbums()
@@ -93,12 +93,25 @@ function useSingleColumnLayout(album) {
   return true
 }
 
-// 详情是否为单条横屏视频（纯视频相册等）
+// 详情内横屏视频（纯视频相册等）
 function isSingleLandscapeVideo(album) {
   if (!album || album.media.length !== 1) return false
   const item = album.media[0]
   if (item.type !== 'video') return false
   return isLandscape(`detail-${album.id}-0`)
+}
+
+// 相册首图路径，供视频 poster 回退
+function firstAlbumImageSrc(album) {
+  const img = album?.media?.find((m) => m.type === 'image')
+  return img?.src || album?.cover || ''
+}
+
+// 末行视频跨列，填满 3 列网格，消除右侧白块
+function videoItemGridSpan(album, index) {
+  if (!album) return 1
+  const item = album.media[index]
+  return detailVideoGridSpan(album.media.length, index, item?.type)
 }
 
 // 封面是否为横屏视频（与横屏图片区分，视频不旋转）
@@ -554,21 +567,28 @@ async function deleteAlbumFromGrid(album) {
                   'is-landscape-video': item.type === 'video' && isLandscape('detail-' + activeAlbum.id + '-' + index),
                 },
               ]"
+              :style="
+                item.type === 'video' && videoItemGridSpan(activeAlbum, index) > 1
+                  ? { gridColumn: `span ${videoItemGridSpan(activeAlbum, index)}` }
+                  : undefined
+              "
             >
-              <!-- 图片：点击放大，横屏自动旋转 -->
+              <!-- 图片：弹层内 eager 加载，避免刚打开白屏 -->
               <img
                 v-if="item.type === 'image'"
                 :src="assetUrl(item.src)"
                 :alt="`${activeAlbum.title} 图片 ${index + 1}`"
-                loading="lazy"
+                loading="eager"
+                decoding="async"
                 @load="markLandscapeIfNeeded($event, 'detail-' + activeAlbum.id + '-' + index)"
                 @error="onMediaImgError($event, item.src)"
                 @click="openLightbox(item.src)"
               />
-              <!-- 视频：点击播放后才加载 mp4，打开详情只显示封面 -->
+              <!-- 视频：poster 失败时用首图；末行跨列避免留白 -->
               <GalleryDetailVideo
                 v-else
                 :src="item.src"
+                :fallback-poster-src="firstAlbumImageSrc(activeAlbum)"
                 @loadedmetadata="markLandscapeIfNeeded($event, 'detail-' + activeAlbum.id + '-' + index)"
               />
               <!-- 本地 dev：删除单张图/视频 -->

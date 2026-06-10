@@ -120,6 +120,11 @@ export function gridCoverIsVideoOnly(album) {
   return /\.(mp4|webm|mov)$/i.test(src)
 }
 
-export function isOnlineCdn() {
-  return Boolean(cdnBase)
+// 详情内末行视频跨列，避免 3 列网格右侧留白
+export function detailVideoGridSpan(mediaLength, index, itemType) {
+  if (itemType !== 'video' || index !== mediaLength - 1) return 1
+  const rem = mediaLength % 3
+  if (rem === 1) return 3
+  if (rem === 2) return 2
+  return 1
 }

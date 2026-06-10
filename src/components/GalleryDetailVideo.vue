@@ -6,6 +6,8 @@ import { assetUrl, videoPosterUrl } from '../utils/assetUrl.js'
 const props = defineProps({
   // 视频相对路径，如 ./maoyan/m1/m11.mp4
   src: { type: String, required: true },
+  // poster 未生成时回退到相册首图，避免黑屏/裂图
+  fallbackPosterSrc: { type: String, default: '' },
 })
 
 // 向父组件上报宽高，用于横屏布局
@@ -16,9 +18,20 @@ const videoEl = ref(null)
 const started = ref(false)
 // 正在缓冲首帧
 const buffering = ref(false)
+// build 生成的 poster 加载失败时改用 fallbackPosterSrc
+const builtPosterFailed = ref(false)
 
-// 构建后的首帧封面（无 build 时为空，用占位）
-const poster = computed(() => videoPosterUrl(props.src))
+// 构建后的首帧封面（无 build 时为空，用占位或首图）
+const builtPoster = computed(() => videoPosterUrl(props.src))
+const fallbackPoster = computed(() =>
+  props.fallbackPosterSrc ? assetUrl(props.fallbackPosterSrc) : ''
+)
+
+// 实际展示的封面：poster 优先，404 时回退相册首图
+const displayPoster = computed(() => {
+  if (builtPoster.value && !builtPosterFailed.value) return builtPoster.value
+  return fallbackPoster.value
+})
 
 // 仅在用户点击后才赋值，避免 <video src> 提前触发下载
 const videoSrc = computed(() => (started.value ? assetUrl(props.src) : ''))
@@ -29,8 +42,14 @@ watch(
   () => {
     started.value = false
     buffering.value = false
+    builtPosterFailed.value = false
   }
 )
+
+// poster.jpg 不存在时改用相册首图
+function onPosterError() {
+  if (!builtPosterFailed.value) builtPosterFailed.value = true
+}
 
 // 用户点击播放：挂上地址并尝试自动播放
 async function onPlayTap() {
@@ -70,11 +89,12 @@ function onLoadedMeta(event) {
     <!-- 未播放：封面 + 大播放钮（几乎瞬间显示） -->
     <div v-if="!started" class="gallery-detail-video-idle">
       <img
-        v-if="poster"
+        v-if="displayPoster"
         class="gallery-detail-video-poster"
-        :src="poster"
+        :src="displayPoster"
         alt=""
         decoding="async"
+        @error="onPosterError"
       />
       <div v-else class="gallery-detail-video-ph" aria-hidden="true">
         <span class="gallery-detail-video-ph-icon">▶</span>
@@ -89,7 +109,7 @@ function onLoadedMeta(event) {
       ref="videoEl"
       class="gallery-detail-video-el"
       :src="videoSrc"
-      :poster="poster || undefined"
+      :poster="displayPoster || undefined"
       controls
       playsinline
       preload="none"
@@ -106,7 +126,7 @@ function onLoadedMeta(event) {
   position: relative;
   width: 100%;
   min-height: 160px;
-  background: #1a120e;
+  background: #ece4dc;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -114,8 +134,7 @@ function onLoadedMeta(event) {
 .gallery-detail-video-idle {
   position: relative;
   width: 100%;
-  aspect-ratio: 9 / 16;
-  max-height: 70vh;
+  aspect-ratio: 4 / 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,12 +153,12 @@ function onLoadedMeta(event) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #2a2018, #1a120e);
+  background: linear-gradient(145deg, #f5ebe0, #e8d5c4);
 }
 
 .gallery-detail-video-ph-icon {
   font-size: 2.5rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(120, 80, 50, 0.55);
 }
 
 .gallery-detail-video-play {
@@ -161,7 +180,9 @@ function onLoadedMeta(event) {
   width: 100%;
   display: block;
   max-height: 70vh;
-  background: #000;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  background: #1a1416;
 }
 
 .gallery-detail-video-loading {
