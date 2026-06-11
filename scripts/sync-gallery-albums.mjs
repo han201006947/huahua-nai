@@ -82,18 +82,37 @@ function scanCategory(catConfig, overrides) {
 
   const albums = []
   let index = 0
+  // Linux 上 Z3/z3 会被当成两个文件夹，按小写名合并为同一相册
+  const mergedDirs = new Map()
 
   for (const entry of entries) {
-    index += 1
+    if (!entry.isDirectory()) continue
+    const subPath = path.join(catPath, entry.name)
+    const files = fs.readdirSync(subPath).filter((f) => isImage(f) || isVideo(f))
+    if (!files.length) continue
+    const key = entry.name.toLowerCase()
+    const prev = mergedDirs.get(key)
+    if (!prev) {
+      mergedDirs.set(key, { dirName: entry.name.toLowerCase(), files: [...files] })
+      continue
+    }
+    for (const f of files) {
+      if (!prev.files.includes(f)) prev.files.push(f)
+    }
+  }
+
+  for (const entry of entries) {
     let id
     let media = []
 
     if (entry.isDirectory()) {
-      const subPath = path.join(catPath, entry.name)
-      const files = fs.readdirSync(subPath).filter((f) => isImage(f) || isVideo(f))
-      if (!files.length) continue
-      id = `${catConfig.key}-${entry.name}`
-      media = buildMediaFromFiles(files, catConfig.dir, entry.name)
+      const key = entry.name.toLowerCase()
+      const merged = mergedDirs.get(key)
+      // 未收录或已输出的合并目录跳过（Z3/z3 只出一条相册）
+      if (!merged || merged.done) continue
+      merged.done = true
+      id = `${catConfig.key}-${merged.dirName}`
+      media = buildMediaFromFiles(merged.files, catConfig.dir, merged.dirName)
     } else if (entry.isFile()) {
       if (!isImage(entry.name) && !isVideo(entry.name)) continue
       const stem = path.parse(entry.name).name
@@ -104,6 +123,7 @@ function scanCategory(catConfig, overrides) {
       continue
     }
 
+    index += 1
     const hasVideo = media.some((m) => m.type === 'video')
     const videoOnly = media.length > 0 && media.every((m) => m.type === 'video')
     const { cover, coverVideo } = pickCover(media)

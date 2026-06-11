@@ -31,12 +31,16 @@ export const albumOverrides = {
   'zhuti-z2-jiehun': {
     title: '婚礼主题',
   },
+  // 主题款 3：4 图 + 视频同一相册（路径统一小写 z3，避免 Z3/z3 拆成两个主题）
   'zhuti-z3': {
-    stylePreview: true,
-  },
-  // Windows 文件夹名为 Z3，sync 生成 id 为 zhuti-Z3
-  'zhuti-Z3': {
     title: '主题款 3',
     stylePreview: true,
+    mediaOrder: [
+      './zhuti/z3/IMG20260609185958.jpg',
+      './zhuti/z3/IMG20260609190147.jpg',
+      './zhuti/z3/IMG20260609190515.jpg',
+      './zhuti/z3/mmexport1781004191774.jpg',
+      './zhuti/z3/z35.mp4',
+    ],
   },
 }

@@ -260,30 +260,18 @@ export const galleryAlbums = [
     ],
   },
   {
-    id: 'zhuti-Z3',
+    id: 'zhuti-z3',
     title: '主题款 3',
     category: '主题款',
-    coverVideo: './zhuti/Z3/z35.mp4',
-    cover: './zhuti/Z3/z35.mp4',
-    hasVideo: true,
-    stylePreview: true,
-    videoOnly: true,
-    media: [
-      { type: 'video', src: './zhuti/Z3/z35.mp4' },
-    ],
-  },
-  {
-    id: 'zhuti-z3',
-    title: '主题款 4',
-    category: '主题款',
     cover: './zhuti/z3/IMG20260609185958.jpg',
-    hasVideo: false,
+    hasVideo: true,
     stylePreview: true,
     media: [
       { type: 'image', src: './zhuti/z3/IMG20260609185958.jpg' },
       { type: 'image', src: './zhuti/z3/IMG20260609190147.jpg' },
       { type: 'image', src: './zhuti/z3/IMG20260609190515.jpg' },
       { type: 'image', src: './zhuti/z3/mmexport1781004191774.jpg' },
+      { type: 'video', src: './zhuti/z3/z35.mp4' },
     ],
   },
 ]
