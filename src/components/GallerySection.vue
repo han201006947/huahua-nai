@@ -182,12 +182,23 @@ function onCoverImgError(event, album) {
   coverFailedIds.value = new Set([...coverFailedIds.value, album.id])
 }
 
-// 详情/灯箱内图片加载失败：店主回退 master
+// 详情/灯箱内图片加载失败：CDN → Pages 直链 → 店主 master
 function onMediaImgError(event, srcPath) {
   const img = event.target
-  if (!isOwnerGalleryPreview() || img.dataset.masterFallback === '1') return
-  img.dataset.masterFallback = '1'
-  img.src = ownerMasterFallbackUrl(srcPath)
+  if (isOwnerGalleryPreview() && img.dataset.masterFallback !== '1') {
+    img.dataset.masterFallback = '1'
+    img.src = ownerMasterFallbackUrl(srcPath)
+    return
+  }
+  if (img.dataset.pagesOrig !== '1') {
+    img.dataset.pagesOrig = '1'
+    img.src = pagesAssetUrl(srcPath)
+    return
+  }
+  if (img.dataset.fallback !== '1') {
+    img.dataset.fallback = '1'
+    img.src = assetUrl(srcPath)
+  }
 }
 
 // 绑定作品集网格 IntersectionObserver，并重置视口内封面加载状态
