@@ -10,5 +10,6 @@
 
 ## Git 提交
 
-- **是否已提交**：否
-- **本地 commit**：—
+- **是否已提交**：是
+- **本地 commit**：0c0f5d7（nail-beauty / master，已 push）
+- **提交说明**：fix: 详情图片失败回退 Pages 直链
